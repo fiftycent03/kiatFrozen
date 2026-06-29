@@ -5,15 +5,16 @@ namespace App\Http\Controllers;
 use App\Models\UserAddress;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class AddressController extends Controller
 {
     public function index()
     {
         $addresses = Auth::user()->addresses()->latest()->get();
-        $provinces = DB::table('shipping_rates')->distinct()->pluck('province_name');
-        return view('user.address', compact('addresses', 'provinces'));
+        // Daftar wilayah (provinsi/kota/kecamatan) kini diambil langsung dari API Emsifa
+        // di sisi browser (lihat resources/views/user/address.blade.php), sehingga tidak
+        // perlu lagi query ke tabel shipping_rates lokal di sini.
+        return view('user.address', compact('addresses'));
     }
 
     public function store(Request $request)

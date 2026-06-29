@@ -68,9 +68,10 @@
                 <input type="text" name="customer_name" class="kiat-input" placeholder="Nama Penerima" required>
                 <input type="tel" name="customer_phone" class="kiat-input" placeholder="Nomor WhatsApp" required>
                 
+                {{-- Dropdown Provinsi: opsi TIDAK lagi diisi dari database. --}}
+                {{-- Diisi otomatis lewat JavaScript dari API Emsifa saat halaman dimuat (lihat script di bawah). --}}
                 <select name="province" id="province" class="kiat-input" required>
-                    <option value="">Pilih Provinsi</option>
-                    @foreach($provinces as $prov) <option value="{{ $prov }}">{{ $prov }}</option> @endforeach
+                    <option value="">Memuat provinsi...</option>
                 </select>
                 <select name="city" id="city" class="kiat-input" required disabled><option value="">Pilih Kota</option></select>
                 <select name="district" id="district" class="kiat-input" required disabled><option value="">Pilih Kecamatan</option></select>
@@ -87,28 +88,73 @@
     </div>
 </div>
 
-{{-- Script Ajax Wilayah sama dengan yang ada di Cart --}}
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+{{-- ===================================================================== --}}
+{{-- DEPENDENT DROPDOWN WILAYAH --}}
+{{-- Sumber data: Public API Emsifa (https://www.emsifa.com/api-wilayah-indonesia) --}}
+{{-- Alur: Provinsi -> Kota/Kabupaten -> Kecamatan. Murni Vanilla JS (Fetch API), --}}
+{{-- TANPA jQuery & TANPA database lokal/seeder. --}}
+{{-- ===================================================================== --}}
 <script>
-$(document).ready(function() {
-    $('#province').on('change', function() {
-        let prov = $(this).val();
-        $('#city').prop('disabled', true).html('<option value="">Memproses...</option>');
-        if(prov) $.get("{{ url('/api/cities') }}/" + encodeURIComponent(prov), function(data) {
-            let html = '<option value="">Pilih Kota</option>';
-            data.forEach(item => html += `<option value="${item.city_name}">${item.city_name}</option>`);
-            $('#city').prop('disabled', false).html(html);
+document.addEventListener('DOMContentLoaded', function () {
+    // Base URL API publik Emsifa.
+    const BASE_API = 'https://www.emsifa.com/api-wilayah-indonesia/api';
+
+    const provinceEl = document.getElementById('province');
+    const cityEl     = document.getElementById('city');
+    const districtEl = document.getElementById('district');
+
+    // Helper: isi sebuah <select> dengan opsi hasil API.
+    // PENTING: value = NAMA wilayah (inilah yang disimpan ke tabel user_addresses),
+    //          data-id = ID wilayah (hanya dipakai untuk memanggil API level berikutnya).
+    function fillSelect(selectEl, items, placeholder) {
+        selectEl.innerHTML = `<option value="">${placeholder}</option>`;
+        items.forEach(function (item) {
+            const opt = document.createElement('option');
+            opt.value = item.name;        // <-- yang DISUBMIT ke form adalah NAMA, bukan ID
+            opt.dataset.id = item.id;     // <-- ID disimpan di data-id untuk chaining API
+            opt.textContent = item.name;
+            selectEl.appendChild(opt);
         });
+    }
+
+    // Helper: kosongkan & nonaktifkan dropdown turunan.
+    function resetSelect(selectEl, placeholder) {
+        selectEl.innerHTML = `<option value="">${placeholder}</option>`;
+        selectEl.disabled = true;
+    }
+
+    // 1) SAAT HALAMAN DIMUAT: ambil daftar PROVINSI dari API Emsifa.
+    fetch(`${BASE_API}/provinces.json`)
+        .then(res => res.json())
+        .then(data => fillSelect(provinceEl, data, 'Pilih Provinsi'))
+        .catch(() => { provinceEl.innerHTML = '<option value="">Gagal memuat provinsi</option>'; });
+
+    // 2) PEMICU API KOTA: saat PROVINSI berubah -> ambil KOTA/KABUPATEN sesuai ID provinsi.
+    provinceEl.addEventListener('change', function () {
+        resetSelect(cityEl, 'Memuat kota...');
+        resetSelect(districtEl, 'Pilih Kecamatan');
+
+        // Ambil ID dari opsi provinsi yang dipilih (disimpan di data-id).
+        const provinceId = this.selectedOptions[0] ? this.selectedOptions[0].dataset.id : '';
+        if (!provinceId) return;
+
+        fetch(`${BASE_API}/regencies/${provinceId}.json`)
+            .then(res => res.json())
+            .then(data => { fillSelect(cityEl, data, 'Pilih Kota'); cityEl.disabled = false; })
+            .catch(() => { cityEl.innerHTML = '<option value="">Gagal memuat kota</option>'; });
     });
 
-    $('#city').on('change', function() {
-        let city = $(this).val();
-        $('#district').prop('disabled', true).html('<option value="">Memproses...</option>');
-        if(city) $.get("{{ url('/api/districts') }}/" + encodeURIComponent(city), function(data) {
-            let html = '<option value="">Pilih Kecamatan</option>';
-            data.forEach(item => html += `<option value="${item.district_name}">${item.district_name}</option>`);
-            $('#district').prop('disabled', false).html(html);
-        });
+    // 3) PEMICU API KECAMATAN: saat KOTA berubah -> ambil KECAMATAN sesuai ID kota.
+    cityEl.addEventListener('change', function () {
+        resetSelect(districtEl, 'Memuat kecamatan...');
+
+        const cityId = this.selectedOptions[0] ? this.selectedOptions[0].dataset.id : '';
+        if (!cityId) return;
+
+        fetch(`${BASE_API}/districts/${cityId}.json`)
+            .then(res => res.json())
+            .then(data => { fillSelect(districtEl, data, 'Pilih Kecamatan'); districtEl.disabled = false; })
+            .catch(() => { districtEl.innerHTML = '<option value="">Gagal memuat kecamatan</option>'; });
     });
 });
 </script>
