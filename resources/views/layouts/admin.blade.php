@@ -72,9 +72,15 @@
             </a>
 
             <!-- Menu Pengguna -->
-            <a href="{{ route('admin.users.index') }}" 
+            <a href="{{ route('admin.users.index') }}"
                class="flex items-center p-3 rounded-xl {{ request()->routeIs('admin.users*') ? 'bg-blue-50 text-blue-600' : 'text-gray-500' }} hover:bg-gray-50 hover:text-gray-800 font-medium transition">
                 <i data-lucide="users" class="w-5 h-5 mr-3"></i>Pengguna
+            </a>
+
+            <!-- Menu Kurir -->
+            <a href="{{ route('admin.couriers.index') }}"
+               class="flex items-center p-3 rounded-xl {{ request()->routeIs('admin.couriers*') ? 'bg-blue-50 text-blue-600' : 'text-gray-500' }} hover:bg-gray-50 hover:text-gray-800 font-medium transition">
+                <i data-lucide="truck" class="w-5 h-5 mr-3"></i>Kurir
             </a>
 
             <div class="mt-auto pt-10">

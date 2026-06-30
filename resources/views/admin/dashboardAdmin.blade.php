@@ -86,12 +86,72 @@
         <header class="flex items-center justify-between p-4 bg-white border-b border-slate-100 sticky top-0 z-10">
             <h2 class="text-xl font-semibold text-gray-800">Selamat Datang, Admin!</h2>
             <div class="flex items-center space-x-4">
+
+                {{-- LONCENG NOTIFIKASI: hitung notifikasi belum dibaca dari tabel notifications --}}
+                @php $unreadCount = auth()->user()->unreadNotifications->count(); @endphp
+                <div class="relative" x-data="{ open: false }">
+                    <button @click="open = !open; $nextTick(() => { if(open) markRead() })"
+                            class="relative p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition">
+                        <i data-lucide="bell" class="w-5 h-5"></i>
+                        {{-- Badge merah muncul hanya jika ada notifikasi belum dibaca --}}
+                        @if($unreadCount > 0)
+                        <span class="absolute top-1 right-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-bold text-white bg-red-500 rounded-full ring-2 ring-white">
+                            {{ $unreadCount > 9 ? '9+' : $unreadCount }}
+                        </span>
+                        @endif
+                    </button>
+
+                    {{-- Dropdown notifikasi (maks 5 terbaru) --}}
+                    <div x-show="open" x-transition @click.outside="open = false"
+                         class="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                        <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                            <span class="font-bold text-gray-800 text-sm">Pesanan Masuk</span>
+                            <a href="{{ route('admin.orders.index') }}" class="text-xs text-blue-600 hover:underline font-semibold">Lihat Semua</a>
+                        </div>
+                        <div class="divide-y divide-gray-50 max-h-64 overflow-y-auto">
+                            @forelse(auth()->user()->notifications()->latest()->take(5)->get() as $notif)
+                                <a href="{{ route('admin.orders.index') }}"
+                                   class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition {{ $notif->read_at ? 'opacity-60' : '' }}">
+                                    <span class="text-xl mt-0.5">🛒</span>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-bold text-gray-800 truncate">
+                                            {{ $notif->data['customer_name'] }}
+                                        </p>
+                                        <p class="text-xs text-gray-500">
+                                            {{ $notif->data['order_code'] }} &bull;
+                                            Rp {{ number_format($notif->data['total'], 0, ',', '.') }}
+                                        </p>
+                                        <p class="text-[10px] text-gray-400 mt-0.5">
+                                            {{ $notif->created_at->diffForHumans() }}
+                                        </p>
+                                    </div>
+                                    @if(!$notif->read_at)
+                                        <span class="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></span>
+                                    @endif
+                                </a>
+                            @empty
+                                <p class="text-center text-sm text-gray-400 py-6">Belum ada notifikasi.</p>
+                            @endforelse
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex items-center space-x-2 cursor-pointer p-1 rounded-full hover:bg-gray-50">
                     <img src="https://placehold.co/150x150/3b82f6/ffffff?text=AD" class="h-8 w-8 rounded-full object-cover" alt="Avatar">
                     <span class="text-sm font-medium text-gray-700">Admin</span>
                 </div>
             </div>
         </header>
+
+        {{-- Script: mark all notifications as read saat dropdown dibuka --}}
+        <script>
+        function markRead() {
+            fetch("{{ url('/admin/notifications/read-all') }}", {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' }
+            });
+        }
+        </script>
 
         <main class="flex-1 overflow-y-auto p-4 md:p-8">
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -170,6 +230,36 @@
                     </div>
                 </div>
             </div>
+
+            {{-- WIDGET: Pesanan Sudah Dibayar, Belum Diproses --}}
+            {{-- Menampilkan hingga 5 pesanan dengan payment_status='paid' dan fulfillment_status='pending'. --}}
+            @if($pendingPaidOrders->isNotEmpty())
+            <div class="bg-white rounded-2xl card-shadow border border-orange-100 mb-8 overflow-hidden">
+                <div class="px-6 py-4 bg-orange-50 border-b border-orange-100 flex items-center justify-between">
+                    <h3 class="font-bold text-orange-800 flex items-center gap-2">
+                        🔔 Pesanan Perlu Diproses
+                        <span class="bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{{ $pendingPaidOrders->count() }}</span>
+                    </h3>
+                    <a href="{{ route('admin.orders.index') }}" class="text-sm text-orange-600 hover:underline font-semibold">Kelola Semua →</a>
+                </div>
+                <div class="divide-y divide-gray-50">
+                    @foreach($pendingPaidOrders as $po)
+                    <div class="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition">
+                        <div>
+                            <p class="font-bold text-gray-800">{{ $po->customer_name }}
+                                <span class="text-xs font-normal text-gray-400 ml-2">#{{ $po->code }}</span>
+                            </p>
+                            <p class="text-sm text-gray-500">{{ $po->city }} &bull; {{ $po->created_at->diffForHumans() }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-blue-600">Rp {{ number_format($po->total, 0, ',', '.') }}</p>
+                            <a href="{{ route('admin.orders.index') }}" class="text-xs text-orange-600 font-semibold hover:underline">Proses →</a>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
 
             <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-100 mb-8">
                 <h3 class="text-xl font-semibold text-gray-800 mb-4">Tren Penjualan 7 Hari Terakhir</h3>

@@ -9,7 +9,9 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
+use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\AddressController;
+use App\Http\Controllers\CourierController;
 
 /*
 |--------------------------------------------------------------------------
@@ -67,6 +69,10 @@ Route::get('/order/success/{id}', [OrderController::class, 'success'])->name('or
 Route::get('/user/order/{id}', [OrderController::class, 'show'])->name('order.show');
 Route::post('/order/upload-proof/{id}', [OrderController::class, 'uploadProof'])->name('order.uploadProof');
 
+// Konfirmasi pembayaran Midtrans via callback browser (pengganti webhook untuk localhost).
+// Dipanggil oleh onSuccess Snap.js setelah transaksi berhasil di popup Midtrans.
+Route::post('/payment/confirm', [OrderController::class, 'confirmPayment'])->name('payment.confirm');
+
 /*
 |--------------------------------------------------------------------------
 | 3. AREA PRIVAT USER (WAJIB LOGIN)
@@ -97,10 +103,41 @@ Route::middleware(['auth'])->group(function () {
 */
 Route::middleware(['admin'])->group(function () {
     Route::get('/admin/dashboard', [DashboardController::class, 'admin'])->name('admin.dashboard');
+    // Tandai semua notifikasi sebagai sudah dibaca — dipanggil JS saat dropdown lonceng dibuka.
+    Route::post('/admin/notifications/read-all', function () {
+        auth()->user()->unreadNotifications->markAsRead();
+        return response()->json(['success' => true]);
+    })->name('admin.notifications.readAll');
     Route::resource('/admin/products', ProductController::class, ['as' => 'admin']);
+
+    // Kelola Kategori (termasuk upload gambar kategori). Route 'store' juga dipakai
+    // untuk tambah kategori INLINE via AJAX dari form Tambah Produk.
+    Route::get('/admin/categories', [CategoryController::class, 'index'])->name('admin.categories.index');
+    Route::post('/admin/categories', [CategoryController::class, 'store'])->name('admin.categories.store');
+    Route::put('/admin/categories/{category}', [CategoryController::class, 'update'])->name('admin.categories.update');
+    Route::delete('/admin/categories/{category}', [CategoryController::class, 'destroy'])->name('admin.categories.destroy');
     Route::get('/admin/users', [UserController::class, 'index'])->name('admin.users.index');
     Route::get('/admin/orders', [AdminOrderController::class, 'index'])->name('admin.orders.index');
     Route::put('/admin/orders/{id}', [AdminOrderController::class, 'update'])->name('admin.orders.update');
     Route::post('/orders/{order}/quick-process', [AdminOrderController::class, 'quickProcess'])->name('admin.orders.quick-process');
+    Route::get('/admin/orders/{id}/download-proof', [AdminOrderController::class, 'downloadProof'])->name('admin.orders.download-proof');
     Route::get('/admin/sales', [AdminOrderController::class, 'salesReport'])->name('admin.sales.index');
+    // Manajemen akun kurir.
+    Route::get('/admin/couriers', [UserController::class, 'couriers'])->name('admin.couriers.index');
+    Route::post('/admin/couriers', [UserController::class, 'storeCourier'])->name('admin.couriers.store');
+    Route::delete('/admin/couriers/{user}', [UserController::class, 'destroyCourier'])->name('admin.couriers.destroy');
+});
+
+/*
+|--------------------------------------------------------------------------
+| 5. AREA KURIR (WAJIB LOGIN + ROLE KURIR)
+|--------------------------------------------------------------------------
+| Kurir hanya bisa lihat daftar pesanan 'shipped' dan upload bukti kirim.
+| Tidak punya akses ke area admin maupun fitur akun user biasa.
+*/
+Route::middleware(['courier'])->prefix('kurir')->name('courier.')->group(function () {
+    // Dashboard: daftar pesanan yang perlu diantarkan hari ini.
+    Route::get('/dashboard', [CourierController::class, 'index'])->name('dashboard');
+    // Upload foto bukti pengiriman untuk satu pesanan spesifik (by ID).
+    Route::post('/orders/{id}/proof', [CourierController::class, 'updateDelivery'])->name('updateDelivery');
 });

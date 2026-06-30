@@ -30,11 +30,18 @@ class AuthController extends Controller
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
 
-            // 3. Cek Role untuk Redirect
+            // 3. Cek Role untuk Redirect — urutan penting: cek role spesifik dulu,
+            //    baru fallback ke dashboard user untuk semua role lain (termasuk 'user').
             if (Auth::user()->role === 'admin') {
                 return redirect()->route('admin.dashboard');
             }
 
+            // Kurir diarahkan ke portal pengantaran, bukan dashboard customer.
+            if (Auth::user()->role === 'kurir') {
+                return redirect()->route('courier.dashboard');
+            }
+
+            // Default: semua role lain (user biasa, guest terdaftar, dsb.) ke dashboard user.
             return redirect()->route('user.dashboard');
         }
 

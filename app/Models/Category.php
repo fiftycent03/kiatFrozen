@@ -6,9 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Category extends Model
 {
-    public function products()
-{
-    return $this->hasMany(\App\Models\Product::class);
-}
+    // Kolom yang boleh diisi massal (termasuk 'image' untuk gambar kategori baru).
+    protected $fillable = ['name', 'slug', 'is_active', 'image'];
 
+    public function products()
+    {
+        return $this->hasMany(\App\Models\Product::class);
+    }
 }

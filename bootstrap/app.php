@@ -14,8 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Alias middleware role
         $middleware->alias([
-            'admin' => \App\Http\Middleware\AdminMiddleware::class,
-            'user'  => \App\Http\Middleware\UserMiddleware::class,
+            'admin'   => \App\Http\Middleware\AdminMiddleware::class,
+            'user'    => \App\Http\Middleware\UserMiddleware::class,
+            // Middleware role kurir: hanya user dengan role='kurir' yang bisa akses area kurir.
+            'courier' => \App\Http\Middleware\CourierMiddleware::class,
         ]);
 
     })

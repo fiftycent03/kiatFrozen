@@ -59,9 +59,15 @@
             </div>
 
             <div class="mb-6">
-                <label class="block text-sm font-semibold mb-2">Kategori</label>
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-semibold">Kategori</label>
+                    {{-- Tombol pemicu modal tambah kategori INLINE (tanpa pindah halaman) --}}
+                    <button type="button" id="btn-add-category" class="text-xs font-bold text-blue-600 hover:underline">
+                        + Tambah Kategori Baru
+                    </button>
+                </div>
 
-                <select name="category_id" required class="w-full border rounded-xl px-4 py-3">
+                <select name="category_id" id="category-select" required class="w-full border rounded-xl px-4 py-3">
 
                     <option value="">-- Pilih Kategori --</option>
 
@@ -168,6 +174,73 @@
         };
 
         update();
+    </script>
+
+    {{-- ============================================================= --}}
+    {{-- MODAL TAMBAH KATEGORI INLINE (via AJAX) --}}
+    {{-- ============================================================= --}}
+    <div id="category-modal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <h3 class="text-lg font-bold mb-4">Tambah Kategori Baru</h3>
+
+            <label class="block text-sm font-semibold mb-2">Nama Kategori</label>
+            <input type="text" id="new-cat-name" class="w-full border rounded-xl px-4 py-3 mb-4" placeholder="Contoh: Kerang">
+
+            <label class="block text-sm font-semibold mb-2">Gambar Kategori (opsional)</label>
+            <input type="file" id="new-cat-image" accept="image/*" class="w-full mb-2">
+
+            <p id="cat-modal-error" class="text-red-500 text-sm mb-2 hidden"></p>
+
+            <div class="flex justify-end gap-3 mt-4">
+                <button type="button" id="btn-cancel-category" class="bg-gray-200 px-5 py-2 rounded-xl">Batal</button>
+                <button type="button" id="btn-save-category" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Referensi elemen modal & dropdown kategori.
+        const catModal     = document.getElementById('category-modal');
+        const catSelect    = document.getElementById('category-select');
+        const catNameInput = document.getElementById('new-cat-name');
+        const catImgInput  = document.getElementById('new-cat-image');
+        const catError     = document.getElementById('cat-modal-error');
+
+        // Buka / tutup modal.
+        document.getElementById('btn-add-category').onclick   = () => catModal.classList.replace('hidden', 'flex');
+        document.getElementById('btn-cancel-category').onclick = () => catModal.classList.replace('flex', 'hidden');
+
+        // SIMPAN kategori via AJAX -> tidak perlu reload halaman.
+        document.getElementById('btn-save-category').onclick = function () {
+            catError.classList.add('hidden');
+            const name = catNameInput.value.trim();
+            if (!name) { catError.textContent = 'Nama kategori wajib diisi.'; catError.classList.remove('hidden'); return; }
+
+            // Bungkus data (nama + gambar) ke FormData agar file ikut terkirim.
+            const formData = new FormData();
+            formData.append('name', name);
+            if (catImgInput.files[0]) formData.append('image', catImgInput.files[0]);
+            // Ambil CSRF token dari hidden input @csrf milik form produk.
+            formData.append('_token', document.querySelector('input[name=_token]').value);
+
+            // Kirim ke endpoint admin.categories.store (mengembalikan JSON).
+            fetch("{{ route('admin.categories.store') }}", {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) throw new Error('Gagal menyimpan');
+                // Tambahkan kategori baru ke dropdown lalu pilih otomatis.
+                const opt = new Option(data.name, data.id, true, true);
+                catSelect.add(opt);
+                // Reset & tutup modal.
+                catNameInput.value = ''; catImgInput.value = '';
+                catModal.classList.replace('flex', 'hidden');
+            })
+            .catch(() => { catError.textContent = 'Gagal menyimpan kategori. Coba lagi.'; catError.classList.remove('hidden'); });
+        };
     </script>
 
 </body>

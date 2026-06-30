@@ -61,30 +61,25 @@
 
             <!-- DAFTAR PRODUK -->
             @foreach($cart as $id => $item)
+                @php $minBeli = (int) ($item['min_pembelian'] ?? 1); @endphp
                 <div style="display:flex; align-items:center; background:white; padding:20px; border-radius:24px; margin-bottom:15px; border:1px solid var(--crystal-border);">
                     <img src="{{ asset('storage/' . $item['image']) }}" style="width:80px; height:80px; object-fit:cover; border-radius:16px;">
                     <div style="flex:1; margin-left:20px;">
                         <h4 style="margin:0; font-weight: 800;">{{ $item['name'] }}</h4>
                         <div style="font-weight: 700; color: var(--icy-blue); margin-bottom: 8px;">Rp {{ number_format($item['price'], 0, ',', '.') }}</div>
-                        
+
                         <div style="display: flex; align-items: center; gap: 15px;">
-                            <!-- Update Quantity Form dengan Batasan Minimal Dinamis -->
+                            <!-- Kontrol Quantity: tombol biasa (type=button) + AJAX, BUKAN form submit lagi -->
+                            <!-- sehingga klik +/- tidak me-reload halaman. -->
                             <div style="display: flex; align-items: center; gap: 10px; background: var(--ice-bg); padding: 5px 10px; border-radius: 12px; border: 1px solid var(--crystal-border);">
-                                <form action="{{ route('cart.updateQty', $id) }}" method="POST">
-                                    @csrf
-                                    <input type="hidden" name="action" value="decrease">
-                                    {{-- KUNCI: Tombol DISABLED jika qty sudah mencapai min_pembelian produk --}}
-                                    <button type="submit" class="qty-btn" {{ $item['qty'] <= ($item['min_pembelian'] ?? 1) ? 'disabled' : '' }}>-</button>
-                                </form>
-                                <span style="font-weight: 800; min-width: 25px; text-align: center;">{{ $item['qty'] }}</span>
-                                <form action="{{ route('cart.updateQty', $id) }}" method="POST">
-                                    @csrf
-                                    <input type="hidden" name="action" value="increase">
-                                    <button type="submit" class="qty-btn">+</button>
-                                </form>
+                                {{-- KUNCI: type="button" + data-action; handler jQuery memanggil API & update DOM --}}
+                                <button type="button" class="qty-btn qty-change" data-id="{{ $id }}" data-action="decrease"
+                                        {{ (int) $item['qty'] <= $minBeli ? 'disabled' : '' }}>-</button>
+                                <span class="qty-value" data-id="{{ $id }}" style="font-weight: 800; min-width: 25px; text-align: center;">{{ $item['qty'] }}</span>
+                                <button type="button" class="qty-btn qty-change" data-id="{{ $id }}" data-action="increase">+</button>
                             </div>
 
-                            <!-- Tombol Hapus -->
+                            <!-- Tombol Hapus (tetap form submit biasa) -->
                             <form action="{{ route('cart.remove', $id) }}" method="POST" onsubmit="return confirm('Hapus produk ini dari keranjang?')">
                                 @csrf
                                 @method('DELETE')
@@ -93,12 +88,13 @@
                                 </button>
                             </form>
                         </div>
-                        {{-- LABEL PERINGATAN MINIMAL BELI --}}
-                        <small style="color: #ef4444; font-size: 0.75rem; font-weight: 700; display: block; margin-top: 5px;">
-                            ⚠️ Minimal pembelian: {{ $item['min_pembelian'] ?? 1 }} {{ $item['satuan'] ?? 'kg' }}
+                        {{-- PERINGATAN MINIMAL BELI: hanya tampil saat qty sudah di batas minimum. --}}
+                        {{-- display awal dihitung server; JS akan show/hide saat qty berubah via AJAX. --}}
+                        <small id="warn-{{ $id }}" style="color: #ef4444; font-size: 0.75rem; font-weight: 700; margin-top: 5px; display: {{ (int) $item['qty'] <= $minBeli ? 'block' : 'none' }};">
+                            ⚠️ Sudah di batas minimal pembelian: {{ $minBeli }} {{ $item['satuan'] ?? 'kg' }}
                         </small>
                     </div>
-                    <div style="font-weight:800; font-size: 1.1rem;">Rp {{ number_format($item['subtotal'], 0, ',', '.') }}</div>
+                    <div class="row-subtotal" data-id="{{ $id }}" style="font-weight:800; font-size: 1.1rem;">Rp {{ number_format($item['subtotal'], 0, ',', '.') }}</div>
                 </div>
             @endforeach
         </div>
@@ -116,22 +112,15 @@
                 <input type="hidden" name="district" id="in-dist" value="{{ $selectedAddress->district ?? '' }}">
                 <input type="hidden" name="address_detail" id="in-detail" value="{{ $selectedAddress->address_detail ?? $selectedAddress->customer_address ?? '' }}">
 
-                <select name="shipping_service" id="shipping_service" class="kiat-input">
-                    <option value="standard">📦 Layanan Standar (+Rp 0)</option>
-                    <option value="express">⚡ Layanan Express (+Rp 5.000)</option>
-                </select>
-
-                <select name="payment_method" class="kiat-input" required>
-                    <option value="">Pilih Pembayaran</option>
-                    <option value="transfer">🏦 Transfer Bank</option>
-                    <option value="cod">Bayar di Tempat (COD)</option>
-                </select>
+                {{-- Ongkir di-hardcode 0, metode pembayaran dikunci ke Midtrans — dropdown dihapus. --}}
+                <input type="hidden" name="shipping_service" value="standard">
+                <input type="hidden" name="payment_method" value="midtrans">
 
                 <textarea name="notes" class="kiat-input" style="height: 60px; resize: none;" placeholder="Catatan untuk penjual..."></textarea>
 
                 <div style="padding: 20px; background: white; border-radius: 20px; border: 1px solid var(--crystal-border);">
                     <div style="display:flex; justify-content: space-between; font-weight:600; color:#64748b;">
-                        <span>Harga Barang</span><span>Rp {{ number_format($total, 0, ',', '.') }}</span>
+                        <span>Harga Barang</span><span id="display-barang">Rp {{ number_format($total, 0, ',', '.') }}</span>
                     </div>
                     <div style="display:flex; justify-content: space-between; font-weight:600; color:#64748b; margin-top:8px;">
                         <span>Ongkir</span><span id="display-shipping">Rp 0</span>
@@ -141,7 +130,12 @@
                     </div>
                 </div>
 
-                <button type="submit" id="btn-submit" class="btn-checkout" disabled>PROSES PESANAN</button>
+                {{-- Tombol aktif jika sudah ada alamat terpilih (dari sesi/riwayat), dinonaktifkan untuk --}}
+                {{-- guest tanpa alamat. JS akan mengaktifkannya saat user memilih alamat dari modal. --}}
+                <button type="submit" id="btn-submit" class="btn-checkout"
+                        {{ isset($selectedAddress) && $selectedAddress ? '' : 'disabled' }}>
+                    {{ isset($selectedAddress) && $selectedAddress ? '💳 BAYAR SEKARANG' : 'PILIH ALAMAT DULU' }}
+                </button>
             </form>
         </div>
     @else
@@ -175,8 +169,10 @@
 </div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+{{-- Midtrans Snap.js: library popup pembayaran. Client Key diambil dari config/services.php. --}}
+<script src="{{ config('services.midtrans.is_production') ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js' }}"
+        data-client-key="{{ config('services.midtrans.client_key') }}"></script>
 <script>
-    let baseOngkir = 0;
     let subtotal = parseInt("{{ $total ?? 0 }}");
 
     function openModalAlamat() { $('#modalAlamat').fadeIn(); }
@@ -191,36 +187,125 @@
         $('#in-city').val(addr.city);
         $('#in-dist').val(addr.district);
         $('#in-detail').val(addr.address_detail);
-        fetchShippingCost(addr.province, addr.city, addr.district);
+        // Ongkir 0 untuk semua wilayah — tidak ada cek shipping_rates lagi.
+        $('#display-shipping').text('Rp 0');
+        $('#display-total').text('Rp ' + new Intl.NumberFormat('id-ID').format(subtotal));
+        // Aktifkan tombol checkout setelah alamat dipilih.
+        $('#btn-submit').prop('disabled', false).text('💳 BAYAR SEKARANG');
         closeModal();
     }
 
-    function fetchShippingCost(prov, city, dist) {
-        $('#btn-submit').text('MENGHITUNG...').prop('disabled', true);
-        $.post("{{ route('shipping.cost') }}", {
-            _token: "{{ csrf_token() }}", province: prov, city: city, district: dist
-        }, function(res) {
-            if(res.success) {
-                baseOngkir = parseInt(res.cost);
-                calculate();
-                $('#btn-submit').text('PROSES PESANAN').prop('disabled', false);
-            }
-        });
-    }
-
     function calculate() {
-        let extra = $('#shipping_service').val() === 'express' ? 5000 : 0;
-        let totalOngkir = baseOngkir + extra;
-        $('#display-shipping').text('Rp ' + new Intl.NumberFormat('id-ID').format(totalOngkir));
-        $('#display-total').text('Rp ' + new Intl.NumberFormat('id-ID').format(subtotal + totalOngkir));
+        // Ongkir selalu 0 — semua wilayah diizinkan checkout.
+        $('#display-shipping').text('Rp 0');
+        $('#display-total').text('Rp ' + new Intl.NumberFormat('id-ID').format(subtotal));
     }
 
-    $('#shipping_service').on('change', calculate);
+    $(document).ready(function() {
+        calculate();
 
-    @if(isset($selectedAddress))
-        $(document).ready(function() {
-            fetchShippingCost("{{ $selectedAddress->province }}", "{{ $selectedAddress->city }}", "{{ $selectedAddress->district }}");
+        // ============================================================
+        // INTERCEPT CHECKOUT FORM → MIDTRANS SNAP POPUP
+        // ============================================================
+        // Mencegah submit form tradisional; order dibuat via AJAX agar server
+        // bisa membalas JSON berisi Snap Token, lalu popup Midtrans dibuka di sini.
+        $('#checkout-form').on('submit', function(e) {
+            e.preventDefault();
+            const $btn  = $('#btn-submit');
+            const $form = $(this);
+            $btn.prop('disabled', true).text('MEMPROSES...');
+
+            $.ajax({
+                url:      $form.attr('action'),
+                method:   'POST',
+                data:     $form.serialize(),
+                dataType: 'json',
+                success: function(res) {
+                    if (!res.success) {
+                        alert(res.message || 'Terjadi kesalahan. Silakan coba lagi.');
+                        $btn.prop('disabled', false).text('💳 BAYAR SEKARANG');
+                        return;
+                    }
+
+                    if (res.snap_token && typeof window.snap !== 'undefined') {
+                        // Token diterima — buka popup pembayaran Midtrans Snap.
+                        window.snap.pay(res.snap_token, {
+                            onSuccess: function(result) {
+                                // Pembayaran berhasil — update status order ke 'paid' via backend,
+                                // lalu redirect ke halaman konfirmasi. Menggunakan .finally() agar
+                                // redirect tetap terjadi walau request konfirmasi gagal jaringan.
+                                fetch("{{ route('payment.confirm') }}", {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRF-TOKEN': "{{ csrf_token() }}"
+                                    },
+                                    body: JSON.stringify({ order_id: res.order_id })
+                                }).finally(function() {
+                                    window.location.href = res.success_url;
+                                });
+                            },
+                            onPending: function() {
+                                // Menunggu pembayaran (VA/QR) — arahkan ke halaman sukses,
+                                // status masih 'pending' sampai user selesai transfer.
+                                window.location.href = res.success_url;
+                            },
+                            onError: function() {
+                                alert('Pembayaran gagal. Silakan coba lagi.');
+                                $btn.prop('disabled', false).text('💳 BAYAR SEKARANG');
+                            },
+                            onClose: function() {
+                                // Popup ditutup tanpa bayar — order sudah dibuat,
+                                // arahkan ke halaman sukses agar bisa bayar nanti.
+                                window.location.href = res.success_url;
+                            }
+                        });
+                    } else {
+                        // Midtrans belum dikonfigurasi (snap_token null) — redirect langsung.
+                        window.location.href = res.success_url;
+                    }
+                },
+                error: function(xhr) {
+                    // Tampilkan pesan validasi Laravel jika ada, atau pesan generik.
+                    let msg = 'Terjadi kesalahan server. Silakan coba lagi.';
+                    if (xhr.responseJSON && xhr.responseJSON.errors) {
+                        msg = Object.values(xhr.responseJSON.errors).flat().join('\n');
+                    } else if (xhr.responseJSON && xhr.responseJSON.message) {
+                        msg = xhr.responseJSON.message;
+                    }
+                    alert(msg);
+                    $btn.prop('disabled', false).text('💳 BAYAR SEKARANG');
+                }
+            });
         });
-    @endif
+    });
+
+    // ============================================================
+    // HANDLER TOMBOL QTY (+/-) — AJAX, MENAHAN RELOAD HALAMAN
+    // ============================================================
+    $(document).on('click', '.qty-change', function(e) {
+        e.preventDefault();
+        const btn    = $(this);
+        const id     = btn.data('id');
+        const action = btn.data('action');
+
+        $.post("{{ url('/cart') }}/" + id + "/qty", {
+            _token: "{{ csrf_token() }}", action: action
+        }, function(res) {
+            if (!res.success) {
+                $('.qty-change[data-id="' + id + '"][data-action="decrease"]').prop('disabled', true);
+                $('#warn-' + id).show();
+                return;
+            }
+
+            $('.qty-value[data-id="' + id + '"]').text(res.qty);
+            $('.row-subtotal[data-id="' + id + '"]').text('Rp ' + new Intl.NumberFormat('id-ID').format(res.subtotal));
+            subtotal = parseInt(res.grand_total);
+            $('#display-barang').text('Rp ' + new Intl.NumberFormat('id-ID').format(subtotal));
+            calculate();
+            $('.qty-change[data-id="' + id + '"][data-action="decrease"]').prop('disabled', res.at_min);
+            if (res.at_min) { $('#warn-' + id).show(); } else { $('#warn-' + id).hide(); }
+        });
+    });
 </script>
 @endsection

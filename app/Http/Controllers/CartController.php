@@ -69,27 +69,64 @@ class CartController extends Controller
     {
         $cart = session()->get('cart', []);
 
+        // Apakah request datang dari AJAX (tombol +/- di halaman keranjang)?
+        // Jika ya, kita balas JSON agar halaman TIDAK perlu reload penuh.
+        $isAjax = $request->ajax() || $request->expectsJson();
+
         if (isset($cart[$id])) {
             $product = Product::find($cart[$id]['product_id']);
-            $minOrder = $product ? ($product->min_pembelian ?? 1) : 1;
-            $currentQty = $cart[$id]['qty'];
+            // Cast (int) agar perbandingan minimal selalu numerik, bukan string.
+            $minOrder   = (int) ($product ? ($product->min_pembelian ?? 1) : 1);
+            $currentQty = (int) $cart[$id]['qty'];
 
             if ($request->action == 'increase') {
                 $cart[$id]['qty']++;
             } elseif ($request->action == 'decrease') {
-                // Logika kunci minimal pembelian
+                // Logika kunci minimal pembelian: tolak bila sudah di batas minimum.
                 if ($currentQty <= $minOrder) {
-                    return redirect()->back()->with('error', "Minimal pemesanan adalah {$minOrder} {$cart[$id]['satuan']}.");
+                    $msg = "Minimal pemesanan adalah {$minOrder} {$cart[$id]['satuan']}.";
+                    // AJAX: balas JSON gagal (status 200) tanpa redirect agar tombol tidak reload.
+                    if ($isAjax) {
+                        return response()->json([
+                            'success'       => false,
+                            'qty'           => $currentQty,
+                            'min_pembelian' => $minOrder,
+                            'at_min'        => true,
+                            'message'       => $msg,
+                        ]);
+                    }
+                    return redirect()->back()->with('error', $msg);
                 }
                 $cart[$id]['qty']--;
             }
 
             $cart[$id]['subtotal'] = $cart[$id]['price'] * $cart[$id]['qty'];
             session()->put('cart', $cart);
-            
+
+            // Total seluruh keranjang setelah perubahan (untuk update panel checkout via JS).
+            $grandTotal = collect($cart)->sum('subtotal');
+            $newQty     = (int) $cart[$id]['qty'];
+
+            // AJAX: kirim data terbaru agar JS bisa update DOM tanpa reload.
+            if ($isAjax) {
+                return response()->json([
+                    'success'       => true,
+                    'qty'           => $newQty,
+                    'subtotal'      => $cart[$id]['subtotal'],
+                    'grand_total'   => $grandTotal,
+                    'min_pembelian' => $minOrder,
+                    // at_min dipakai JS untuk menonaktifkan tombol "-" & menampilkan peringatan.
+                    'at_min'        => $newQty <= $minOrder,
+                ]);
+            }
+
             return redirect()->back()->with('success', 'Jumlah diperbarui.');
         }
 
+        // Item tidak ditemukan di keranjang.
+        if ($isAjax) {
+            return response()->json(['success' => false, 'message' => 'Produk tidak ditemukan.'], 404);
+        }
         return redirect()->back()->with('error', 'Produk tidak ditemukan.');
     }
 

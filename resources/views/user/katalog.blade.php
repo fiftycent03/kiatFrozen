@@ -43,8 +43,10 @@
                 <h3 class="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wider">Kategori</h3>
                 <nav class="space-y-1">
                     <a href="{{ route('produk.kategori') }}" class="block px-3 py-2 rounded-lg text-sm {{ !$kategori ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50' }}">📂 Semua Produk</a>
-                    @foreach(['cumi','dory','fillet ikan','kepiting','scallop','udang'] as $kat)
-                        <a href="{{ route('produk.kategori', $kat) }}" class="block px-3 py-2 rounded-lg text-sm {{ $kategori == $kat ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50' }}">🔹 {{ ucfirst($kat) }}</a>
+                    {{-- Daftar kategori kini diambil langsung dari tabel categories (dinamis, sesuai data Admin), --}}
+                    {{-- bukan lagi array hardcoded -> kategori baru seperti "Japanes" otomatis muncul di sini. --}}
+                    @foreach($categories as $cat)
+                        <a href="{{ route('produk.kategori', $cat->slug) }}" class="block px-3 py-2 rounded-lg text-sm {{ $kategori == $cat->slug ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50' }}">🔹 {{ $cat->name }}</a>
                     @endforeach
                 </nav>
             </div>

@@ -22,8 +22,28 @@
     </div>
     @endif
 
+    @if(!empty($snapToken))
+    {{-- ===== PEMBAYARAN ONLINE MIDTRANS (muncul jika Snap Token berhasil dibuat) ===== --}}
+    <button id="pay-button" style="display: block; width: 100%; background: #16a34a; color: white; padding: 18px; border-radius: 15px; border: none; font-weight: 700; cursor: pointer; margin-bottom: 15px;">
+        💳 Bayar Online Sekarang
+    </button>
+
+    {{-- snap.js Midtrans (SANDBOX). Untuk produksi ganti ke https://app.midtrans.com/snap/snap.js --}}
+    <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="{{ config('services.midtrans.client_key') }}"></script>
+    <script>
+        // Saat tombol diklik -> munculkan popup pembayaran Midtrans memakai Snap Token dari server.
+        document.getElementById('pay-button').onclick = function () {
+            window.snap.pay('{{ $snapToken }}', {
+                onSuccess: function () { window.location.href = "{{ route('order.show', $order->id) }}"; },
+                onPending: function () { window.location.href = "{{ route('order.show', $order->id) }}"; },
+                onError:   function () { alert('Pembayaran gagal, silakan coba lagi.'); }
+            });
+        };
+    </script>
+    @endif
+
     <a href="{{ route('order.show', $order->id) }}" style="display: block; background: #0ea5e9; color: white; padding: 18px; border-radius: 15px; text-decoration: none; font-weight: 700;">
-        Unggah Bukti / Lihat Detail
+        Lihat Detail
     </a>
 </div>
 @endsection

@@ -38,12 +38,17 @@
                             <a href="{{ route('produk.kategori') }}" class="block px-4 py-2.5 text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 transition border-b border-gray-100">
                                 📂 Semua Kategori
                             </a>
-                            @php
-                            $kategori = ['cumi' => ' Cumi-Cumi', 'dory' => ' Ikan Dory', 'fillet ikan' => ' Fillet Ikan', 'kepiting' => ' Kepiting', 'scallop' => ' Scallop', 'udang' => ' Udang'];
-                            @endphp
-                            @foreach($kategori as $slug => $nama)
-                                <a href="/produk/{{ $slug }}" class="block px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition border-b border-gray-50 last:border-0">
-                                   {{ $nama }}
+                            {{--
+                                Daftar kategori diambil LANGSUNG dari tabel categories (dinamis,
+                                sesuai data Admin) — bukan lagi array hardcoded, sehingga kategori
+                                baru (mis. "Japanes") otomatis muncul di sini juga.
+                                Variabel diberi nama $navKategori (bukan $kategori) agar TIDAK menimpa
+                                variabel $kategori dari KatalogController saat partial ini dirender
+                                di halaman /produk/{kategori} (partial berbagi scope dgn parent view).
+                            --}}
+                            @foreach(\App\Models\Category::where('is_active', 1)->orderBy('name')->get() as $navKategori)
+                                <a href="/produk/{{ $navKategori->slug }}" class="block px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition border-b border-gray-50 last:border-0">
+                                   {{ $navKategori->name }}
                                 </a>
                             @endforeach
                         </div>

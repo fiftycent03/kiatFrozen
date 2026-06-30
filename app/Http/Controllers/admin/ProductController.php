@@ -118,15 +118,32 @@ class ProductController extends Controller
                 ->update(['is_primary' => true]);
         }
 
+        // === PERBAIKAN BUG GANTI GAMBAR SAAT EDIT ===
+        // Bug lama: gambar baru disimpan dengan is_primary=false, sehingga foto utama
+        // (primaryImage) yang tampil di katalog TIDAK pernah berubah -> terlihat seperti
+        // "upload tidak tersimpan". Sekarang: gambar pertama yang diupload menjadi foto
+        // UTAMA (replace), dan foto utama lama dihapus dari storage + database.
         if ($request->hasFile('images')) {
-            foreach ($request->images as $img) {
+            // Simpan referensi foto utama lama untuk dihapus setelah pengganti tersimpan.
+            $oldPrimary = $product->images()->where('is_primary', true)->first();
+
+            foreach (array_values($request->file('images')) as $index => $img) {
+                // Simpan file fisik baru ke storage/app/public/products
                 $path = $img->store('products', 'public');
 
                 ProductImage::create([
                     'product_id' => $product->id,
                     'path'       => $path,
-                    'is_primary' => false
+                    // Gambar pertama jadi foto utama (mengganti yang lama),
+                    // gambar berikutnya (jika upload banyak) masuk sebagai galeri.
+                    'is_primary' => $index === 0,
                 ]);
+            }
+
+            // Hapus file + record foto utama lama agar tidak menumpuk & benar-benar terganti.
+            if ($oldPrimary) {
+                Storage::disk('public')->delete($oldPrimary->path);
+                $oldPrimary->delete();
             }
         }
 

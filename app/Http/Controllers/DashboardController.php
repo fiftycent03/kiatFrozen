@@ -2,9 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Order; 
-use App\Models\Product; 
+use App\Models\Order;
 use Carbon\Carbon;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -80,23 +78,31 @@ class DashboardController extends Controller
             $chartData[] = $salesDataRaw[$dateKey] ?? 0;
         }
 
-        // Kirim semua data ke View, termasuk data chart baru
+        // Pesanan yang sudah DIBAYAR tapi belum diproses — perlu segera ditindak admin.
+        $pendingPaidOrders = Order::where('payment_status', 'paid')
+            ->where('fulfillment_status', 'pending')
+            ->latest()
+            ->take(5)
+            ->get();
+
+        // Kirim semua data ke View, termasuk data chart dan pesanan perlu diproses.
         return view('admin.dashboardAdmin', compact(
             'totalRevenue', 'revenuePercentage',
             'ordersToday', 'orderPercentage',
             'totalUsers', 'userPercentage',
-            'chartLabels', 'chartData' // <-- Tambahan Baru
+            'chartLabels', 'chartData',
+            'pendingPaidOrders'
         ));
     }
 
     public function user()
     {
-        // Ambil 8 produk terbaru untuk ditampilkan di halaman depan
-        // (Pastikan tabel products sudah ada isinya, kalau kosong nanti tidak error tapi tidak muncul apa-apa)
-        $products = Product::latest()->take(8)->get();
+        // Dashboard kini menampilkan GRID KATEGORI (bukan lagi daftar produk).
+        // Ambil semua kategori AKTIF beserta gambarnya untuk dijadikan card background-image.
+        $categories = \App\Models\Category::where('is_active', 1)->latest()->get();
 
-        // Kirim data $products ke view dashboardUser
-        return view('user.dashboardUser', compact('products'));
+        // Kirim data $categories ke view dashboardUser
+        return view('user.dashboardUser', compact('categories'));
     }
 
     // 2. HALAMAN RIWAYAT PESANAN (FITUR BARU)
