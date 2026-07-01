@@ -34,14 +34,10 @@
         <!-- Card utama -->
         <div class="icy-card p-8 sm:p-12 w-11/12 max-w-md mx-auto rounded-3xl shadow-2xl shadow-cyan-500/40 transform transition duration-500 hover:scale-[1.01] overflow-hidden">
 
-            <!-- Ikon -->
-            <div class="flex justify-center mb-6 relative">
-                <svg class="w-16 h-16 text-cyan-600 animate-spin-slow opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10" stroke-width="1.5"></circle>
-                </svg>
-                <svg class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-10 h-10 text-cyan-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
-                </svg>
+            <!-- Logo resmi perusahaan (menggantikan ikon lingkaran berputar + gembok) -->
+            <div class="flex flex-col items-center mb-6">
+                <img src="{{ asset('storage/Logo_Kiat.png') }}" alt="Logo KIAT" class="h-16 w-auto mb-2">
+                <span class="font-bold text-lg text-blue-800 tracking-tight text-center">Karya Inti Alam Tunggal</span>
             </div>
 
             <h1 class="text-4xl font-extrabold text-center text-gray-800 mb-2">Login</h1>

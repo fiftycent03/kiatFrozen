@@ -74,9 +74,16 @@
                         </td>
 
                         <td class="p-4">
+                            {{-- Sebelumnya badge ini cuma bedakan 'admin' vs selain-itu (selalu tampil "User"),
+                                 jadi akun kurir ikut tampil sebagai "User" walau kolom role di DB sudah benar
+                                 'kurir'. Sekarang tiap role punya badge sendiri sesuai nilai asli di database. --}}
                             @if($user->role === 'admin')
                                 <span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold border border-purple-200">
                                     ADMIN
+                                </span>
+                            @elseif($user->role === 'kurir')
+                                <span class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-bold border border-orange-200">
+                                    KURIR
                                 </span>
                             @else
                                 <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-medium border border-gray-200">

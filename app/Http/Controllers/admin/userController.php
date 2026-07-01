@@ -30,6 +30,9 @@ class UserController extends Controller
 
     public function storeCourier(Request $request)
     {
+        // Validasi HANYA menerima name/email/password dari form — 'role' TIDAK termasuk
+        // di sini, jadi walaupun ada field 'role' disisipkan lewat request (form tampering),
+        // nilainya tidak pernah dipakai di bawah.
         $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|unique:users,email',
@@ -40,6 +43,10 @@ class UserController extends Controller
             'name'     => $request->name,
             'email'    => $request->email,
             'password' => Hash::make($request->password),
+            // Role di-hardcode 'kurir' di sini, BUKAN diambil dari $request->role.
+            // Ini satu-satunya endpoint pembuatan akun kurir, jadi role harus dipaksa
+            // di server agar tidak mungkin akun baru dari form ini tersimpan sebagai
+            // role default ('user') atau role lain yang tidak diinginkan.
             'role'     => 'kurir',
         ]);
 

@@ -37,8 +37,9 @@
         <div class="flex items-center justify-between mb-8">
             <div class="flex items-center">
                 <h1 class="text-2xl font-bold text-gray-800 flex items-center">
-                    <i data-lucide="snowflake" class="w-6 h-6 mr-2 text-blue-500"></i>
-                    <span class="text-blue-600">KIAT</span>Dashboard
+                    <!-- Logo resmi perusahaan (menggantikan ikon kepingan salju + teks "KIAT") -->
+                    <img src="{{ asset('storage/Logo_Kiat.png') }}" alt="Logo KIAT" class="h-10 w-auto mr-2">
+                    <span class="font-bold text-xl text-blue-800 tracking-tight">Karya Inti Alam Tunggal</span>
                 </h1>
             </div>
             <!-- Tombol Close hanya untuk Mobile -->

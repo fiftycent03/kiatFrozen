@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use Illuminate\Support\Str;
 use App\Http\Controllers\Controller;
+use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductImage;
 use Illuminate\Http\Request;
@@ -27,7 +28,11 @@ class ProductController extends Controller
                           ->paginate(10)
                           ->withQueryString();
 
-        return view('admin.product-index', compact('products'));
+        // Dikirim untuk daftar kategori + modal Tambah/Edit Kategori di halaman ini
+        // (fitur kelola kategori dipindahkan dari form Tambah Produk ke sini).
+        $categories = Category::latest()->get();
+
+        return view('admin.product-index', compact('products', 'categories'));
     }
 
     public function create()

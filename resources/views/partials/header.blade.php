@@ -5,9 +5,10 @@
             {{-- 1. LOGO (KIRI) --}}
             <div class="flex-shrink-0 flex items-center">
                 <a href="{{ route('user.dashboard') }}" class="flex items-center gap-2 group">
-                    <span class="text-3xl">❄️</span>
+                    <!-- Logo resmi perusahaan (menggantikan ikon kepingan salju + teks "KIAT FROZEN") -->
+                    <img src="{{ asset('storage/Logo_Kiat.png') }}" alt="Logo KIAT" class="h-12 w-auto mr-2">
                     <div class="flex flex-col">
-                        <span class="text-xl font-extrabold text-blue-600 tracking-tight group-hover:text-blue-700 transition">KIAT FROZEN</span>
+                        <span class="font-bold text-xl text-blue-800 tracking-tight group-hover:text-blue-700 transition">Karya Inti Alam Tunggal</span>
                         <span class="text-[10px] text-gray-500 font-semibold tracking-wider uppercase -mt-1">Fresh & High Quality</span>
                     </div>
                 </a>

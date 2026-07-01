@@ -14,9 +14,10 @@
     <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
         <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
             <div class="flex items-center gap-2">
-                <span class="text-2xl">❄️</span>
+                <!-- Logo resmi perusahaan (menggantikan ikon kepingan salju + teks "KIAT FROZEN") -->
+                <img src="{{ asset('storage/Logo_Kiat.png') }}" alt="Logo KIAT" class="h-10 w-auto mr-2">
                 <div>
-                    <div class="font-extrabold text-blue-600 leading-none">KIAT FROZEN</div>
+                    <div class="font-bold text-xl text-blue-800 tracking-tight leading-none">Karya Inti Alam Tunggal</div>
                     <div class="text-[10px] text-gray-400 uppercase tracking-widest font-semibold">Portal Kurir</div>
                 </div>
             </div>

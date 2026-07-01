@@ -87,10 +87,65 @@
                         Manajemen Produk
                     </h1>
 
-                    <a href="{{ route('admin.products.create') }}"
-                        class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center transition shadow-lg shadow-blue-200">
-                        <i data-lucide="plus-circle" class="w-4 h-4 mr-2"></i> Tambah Produk
-                    </a>
+                    {{-- Tombol "Tambah Kategori" diletakkan bersisian dengan "Tambah Produk".
+                         Sebelumnya fitur ini ada di form Tambah Produk, sekarang dipindah ke sini
+                         supaya kategori bisa dikelola tanpa harus masuk ke form tambah produk. --}}
+                    <div class="flex items-center gap-3">
+                        <button type="button" onclick="openAddCategoryModal()"
+                            class="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center transition shadow-lg shadow-teal-200">
+                            <i data-lucide="tag" class="w-4 h-4 mr-2"></i> Tambah Kategori
+                        </button>
+
+                        <a href="{{ route('admin.products.create') }}"
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center transition shadow-lg shadow-blue-200">
+                            <i data-lucide="plus-circle" class="w-4 h-4 mr-2"></i> Tambah Produk
+                        </a>
+                    </div>
+                </div>
+
+                {{-- ============================================================= --}}
+                {{-- DAFTAR KATEGORI: tabel kecil di atas tabel produk, tiap baris --}}
+                {{-- punya tombol Edit yang membuka modal edit kategori. --}}
+                {{-- ============================================================= --}}
+                <div class="mb-6 border border-gray-100 rounded-2xl overflow-hidden">
+                    <div class="bg-slate-50 px-4 py-3 flex items-center justify-between">
+                        <h2 class="font-bold text-gray-700 text-sm flex items-center">
+                            <i data-lucide="tags" class="w-4 h-4 mr-2 text-teal-600"></i>
+                            Daftar Kategori
+                        </h2>
+                        <span class="bg-teal-100 text-teal-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                            {{ $categories->count() }} kategori
+                        </span>
+                    </div>
+
+                    @if($categories->isEmpty())
+                    <div class="p-6 text-center text-gray-400 text-sm">Belum ada kategori. Tambahkan lewat tombol di atas.</div>
+                    @else
+                    <div class="overflow-x-auto">
+                        <div class="flex gap-3 p-4 min-w-max">
+                            @foreach($categories as $cat)
+                            <div class="w-44 shrink-0 border border-gray-100 rounded-xl p-3 flex flex-col items-center text-center">
+                                {{-- Preview gambar kategori dari storage (fallback placeholder bila kosong) --}}
+                                <img src="{{ $cat->image ? asset('storage/' . $cat->image) : 'https://placehold.co/100x100?text=No+Img' }}"
+                                     class="w-16 h-16 rounded-lg object-cover border border-gray-200 mb-2" alt="{{ $cat->name }}">
+                                <p class="font-semibold text-gray-700 text-sm truncate w-full">{{ $cat->name }}</p>
+                                @if($cat->is_active)
+                                    <span class="mt-1 bg-green-100 text-green-700 px-2 py-0.5 text-[10px] font-bold rounded-full">Aktif</span>
+                                @else
+                                    <span class="mt-1 bg-gray-100 text-gray-500 px-2 py-0.5 text-[10px] font-bold rounded-full">Nonaktif</span>
+                                @endif
+
+                                {{-- Tombol Edit: kirim data kategori ini ke JS agar modal edit terisi otomatis --}}
+                                <button type="button"
+                                    onclick="openEditCategoryModal({{ $cat->id }}, {{ Js::from($cat->name) }}, {{ Js::from($cat->image) }}, {{ $cat->is_active ? 'true' : 'false' }})"
+                                    class="mt-2 w-full bg-yellow-50 hover:bg-yellow-100 text-yellow-600 border border-yellow-200 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center transition">
+                                    <i data-lucide="pencil" class="w-3 h-3 mr-1"></i>Edit
+                                </button>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
                 </div>
 
                 <div class="overflow-x-auto rounded-2xl border border-gray-100">
@@ -251,6 +306,101 @@
         modal.addEventListener('click', (e) => {
             if (e.target === modal) hideModal();
         });
+    </script>
+
+    {{-- ============================================================= --}}
+    {{-- MODAL TAMBAH KATEGORI (nama + upload gambar) --}}
+    {{-- ============================================================= --}}
+    <div id="modal-add-category" class="fixed inset-0 bg-gray-900/60 z-50 hidden items-center justify-center backdrop-blur-sm p-4">
+        <div class="bg-white p-6 rounded-2xl shadow-2xl max-w-md w-full">
+            <h3 class="text-lg font-bold mb-4 flex items-center">
+                <i data-lucide="tag" class="w-5 h-5 mr-2 text-teal-600"></i>Tambah Kategori Baru
+            </h3>
+            {{-- enctype wajib agar file gambar ikut terkirim --}}
+            <form action="{{ route('admin.categories.store') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <label class="block text-sm font-semibold mb-2">Nama Kategori</label>
+                <input type="text" name="name" required class="w-full border rounded-xl px-4 py-3 mb-4" placeholder="Contoh: Cumi-Cumi">
+
+                <label class="block text-sm font-semibold mb-2">Gambar Kategori (opsional)</label>
+                <input type="file" name="image" accept="image/*" class="w-full mb-4">
+
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="closeAddCategoryModal()" class="bg-gray-100 hover:bg-gray-200 px-5 py-2.5 rounded-xl font-medium">Batal</button>
+                    <button type="submit" class="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-xl font-bold">Simpan Kategori</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- ============================================================= --}}
+    {{-- MODAL EDIT KATEGORI (preview gambar saat ini + ganti nama/gambar) --}}
+    {{-- ============================================================= --}}
+    <div id="modal-edit-category" class="fixed inset-0 bg-gray-900/60 z-50 hidden items-center justify-center backdrop-blur-sm p-4">
+        <div class="bg-white p-6 rounded-2xl shadow-2xl max-w-md w-full">
+            <h3 class="text-lg font-bold mb-4 flex items-center">
+                <i data-lucide="pencil" class="w-5 h-5 mr-2 text-yellow-600"></i>Edit Kategori
+            </h3>
+
+            {{-- Preview gambar kategori SAAT INI, sebelum diganti --}}
+            <div class="flex justify-center mb-4">
+                <img id="edit-cat-preview" src="" alt="" class="w-24 h-24 rounded-xl object-cover border border-gray-200">
+            </div>
+
+            {{-- Action form di-set dinamis via JS (openEditCategoryModal) ke admin.categories.update/{id} --}}
+            <form id="form-edit-category" method="POST" enctype="multipart/form-data">
+                @csrf
+                @method('PUT')
+
+                <label class="block text-sm font-semibold mb-2">Nama Kategori</label>
+                <input type="text" name="name" id="edit-cat-name" required class="w-full border rounded-xl px-4 py-3 mb-4">
+
+                <label class="block text-sm font-semibold mb-2">Ganti Gambar (opsional)</label>
+                <input type="file" name="image" accept="image/*" class="w-full mb-4">
+
+                <label class="flex items-center gap-2 text-sm font-semibold mb-4">
+                    <input type="checkbox" name="is_active" id="edit-cat-active" value="1"> Kategori Aktif
+                </label>
+
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="closeEditCategoryModal()" class="bg-gray-100 hover:bg-gray-200 px-5 py-2.5 rounded-xl font-medium">Batal</button>
+                    <button type="submit" class="bg-yellow-500 hover:bg-yellow-600 text-white px-5 py-2.5 rounded-xl font-bold">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Base URL storage — dipakai untuk membangun path gambar kategori di modal edit.
+        const storageBase = "{{ asset('storage') }}";
+
+        function openAddCategoryModal() {
+            document.getElementById('modal-add-category').classList.replace('hidden', 'flex');
+        }
+        function closeAddCategoryModal() {
+            document.getElementById('modal-add-category').classList.replace('flex', 'hidden');
+        }
+
+        // Dipanggil dari tombol "Edit" tiap kartu kategori. Mengisi form edit
+        // dengan data kategori yang dipilih (termasuk preview gambar saat ini)
+        // dan mengarahkan action form ke endpoint update kategori tsb.
+        function openEditCategoryModal(id, name, imagePath, isActive) {
+            const form = document.getElementById('form-edit-category');
+            // Route admin.categories.update/{category} — dibangun manual karena id dinamis.
+            form.action = "{{ url('/admin/categories') }}/" + id;
+
+            document.getElementById('edit-cat-name').value = name;
+            document.getElementById('edit-cat-active').checked = !!isActive;
+
+            // Preview gambar saat ini; pakai placeholder bila kategori belum punya gambar.
+            const preview = document.getElementById('edit-cat-preview');
+            preview.src = imagePath ? (storageBase + '/' + imagePath) : 'https://placehold.co/100x100?text=No+Img';
+
+            document.getElementById('modal-edit-category').classList.replace('hidden', 'flex');
+        }
+        function closeEditCategoryModal() {
+            document.getElementById('modal-edit-category').classList.replace('flex', 'hidden');
+        }
     </script>
 
 @endsection
