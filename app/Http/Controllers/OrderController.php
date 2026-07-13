@@ -121,16 +121,32 @@ class OrderController extends Controller
                     'grams'                 => $totalGrams,
                 ]);
 
-                // Pengurangan stok otomatis (atomik di dalam transaksi).
-                Product::where('id', $item['product_id'])->decrement('stock', $item['qty']);
+                // PENGURANGAN STOK DIPINDAHKAN ke confirmPayment() (dipanggil saat
+                // onSuccess/onPending Midtrans). Order di titik ini baru "niat checkout" —
+                // belum tentu dibayar. Stok baru dikurangi setelah pembayaran benar-benar
+                // diproses, supaya order yang akhirnya tidak pernah dibayar tidak membuat
+                // stok produk lain "hangus" secara salah.
             }
 
+            // Alur "Pay Later": begitu order terbentuk, dia SAH dan akan tetap ada di
+            // sistem (muncul di Riwayat Pesanan) terlepas dari popup Midtrans jadi
+            // dibayar sekarang atau nanti — makanya cart dikosongkan DI SINI, bukan
+            // ditunda sampai pembayaran sukses. Kalau user menutup popup (onClose),
+            // order TIDAK dihapus — dia tinggal buka lagi lewat halaman Order Detail.
             session()->forget('cart');
+
             return $order;
         });
 
-        // Generate Snap Token Midtrans setelah order & items tersimpan.
+        // Generate Snap Token Midtrans setelah order & items tersimpan, LALU simpan
+        // ke kolom snap_token pada row order tsb. Token inilah yang nanti dipakai
+        // ulang oleh tombol "Lanjutkan Pembayaran" di halaman Order Detail — supaya
+        // popup yang dibuka kembali adalah SESI PEMBAYARAN YANG SAMA (bukan transaksi
+        // baru tiap kali di-generate ulang).
         $snapToken = $this->generateSnapToken($order->load('items'));
+        if ($snapToken) {
+            $order->update(['snap_token' => $snapToken]);
+        }
 
         // Bila request dari AJAX ($.ajax di cart.blade.php), balas JSON berisi token.
         if ($isAjax) {
@@ -139,6 +155,7 @@ class OrderController extends Controller
                 'snap_token'  => $snapToken,
                 'order_id'    => $order->id,
                 'success_url' => route('order.success', $order->id),
+                'detail_url'  => route('order.show', $order->id),
             ]);
         }
 
@@ -165,12 +182,18 @@ class OrderController extends Controller
     }
 
     public function success($id) {
-        $order = Order::findOrFail($id);
+        $order = Order::with('items')->findOrFail($id);
 
-        // Buat Snap Token Midtrans untuk pembayaran online di halaman sukses.
-        $snapToken = $this->generateSnapToken($order);
+        // Pakai snap_token yang sudah tersimpan dari saat checkout (store()) — JANGAN
+        // generate baru di sini. Meminta token baru untuk order.code yang sama akan
+        // membuat sesi transaksi Midtrans terpisah dari yang barusan dibuka user.
+        // Fallback: generate + simpan hanya jika token belum ada sama sekali
+        // (mis. order lama sebelum kolom snap_token ditambahkan).
+        if (!$order->snap_token && $order->payment_channel === 'midtrans' && $order->payment_status !== 'paid') {
+            $order->update(['snap_token' => $this->generateSnapToken($order)]);
+        }
 
-        return view('user.orderSuccess', compact('order', 'snapToken'));
+        return view('user.orderSuccess', compact('order'));
     }
 
     /**
@@ -229,25 +252,50 @@ class OrderController extends Controller
     /**
      * Endpoint konfirmasi pembayaran Midtrans dari browser user.
      *
-     * Dipanggil oleh callback onSuccess Snap.js di cart.blade.php setelah
-     * user berhasil bayar. Karena localhost tidak bisa ditembus webhook Midtrans
+     * Dipanggil oleh callback onSuccess ATAU onPending Snap.js (cart.blade.php,
+     * orderSuccess.blade.php, orderDetail.blade.php) setelah popup Midtrans
+     * memberi hasil. Karena localhost tidak bisa ditembus webhook Midtrans
      * dari luar, kita andalkan callback frontend sebagai pengganti sementara.
      *
-     * Alur: Snap popup sukses → JS fetch POST ke sini → status jadi 'paid'
-     *       → notifikasi dikirim ke semua admin → JS redirect ke halaman sukses.
+     * Parameter 'status' membedakan dua kasus:
+     * - 'paid'    (dari onSuccess) → payment_status langsung 'paid'.
+     * - 'pending' (dari onPending, mis. VA/QR belum ditransfer) → payment_status
+     *              TETAP 'pending', tapi stok tetap "dikunci" di sini karena order
+     *              sudah pasti akan diproses sebentar lagi.
+     *
+     * PEMINDAHAN LOGIKA STOK: Pengurangan stok yang tadinya ada di store() (langsung
+     * saat klik checkout) dipindahkan ke sini. stock_reserved_at dipakai sebagai
+     * penanda idempoten agar retry pembayaran (mis. via tombol "Lanjutkan Pembayaran"
+     * di orderDetail, yang memakai ULANG snap_token yang sama) TIDAK mengurangi
+     * stok dua kali untuk order yang sama.
      */
     public function confirmPayment(Request $request)
     {
-        $request->validate(['order_id' => 'required|exists:orders,id']);
+        $request->validate([
+            'order_id' => 'required|exists:orders,id',
+            'status'   => 'nullable|in:paid,pending',
+        ]);
 
-        $order = Order::findOrFail($request->order_id);
+        $order  = Order::with('items')->findOrFail($request->order_id);
+        $status = $request->input('status', 'paid');
 
-        // Hanya update sekali — cegah perubahan duplikat bila endpoint dipanggil ulang.
-        if ($order->payment_status !== 'paid') {
-            $order->update([
-                'payment_status' => 'paid',
-                'paid_at'        => now(),
-            ]);
+        // Kurangi stok HANYA SEKALI per order (dicek via stock_reserved_at), baik
+        // dipicu dari onSuccess maupun onPending. Ini mencegah pengurangan ganda saat
+        // user retry bayar (mis. onPending dulu lalu berhasil onSuccess di percobaan
+        // berikutnya lewat tombol "Lanjutkan Pembayaran"). Cart TIDAK disentuh di sini
+        // lagi — sudah dikosongkan sejak order dibuat di store() (alur "Pay Later").
+        if (!$order->stock_reserved_at) {
+            foreach ($order->items as $item) {
+                Product::where('id', $item->product_id)->decrement('stock', $item->qty);
+            }
+            $order->stock_reserved_at = now();
+        }
+
+        // Hanya set 'paid' sekali — cegah perubahan/notifikasi duplikat bila endpoint
+        // dipanggil ulang (mis. onSuccess menyusul onPending untuk order yang sama).
+        if ($status === 'paid' && $order->payment_status !== 'paid') {
+            $order->payment_status = 'paid';
+            $order->paid_at        = now();
 
             // Kirim notifikasi database ke semua user dengan role 'admin'
             // agar segera terlihat di badge lonceng dashboard admin.
@@ -255,11 +303,23 @@ class OrderController extends Controller
             Notification::send($admins, new NewOrderNotification($order));
         }
 
+        $order->save();
+
         return response()->json(['success' => true]);
     }
 
     public function show($id) {
         $order = Order::with('items.product')->findOrFail($id);
+
+        // ALUR "PAY LATER": order TIDAK PERNAH dihapus meski popup Midtrans sempat
+        // ditutup tanpa bayar (lihat onClose di cart.blade.php) — jadi di sini kita
+        // tinggal pastikan snap_token tersedia untuk tombol "Lanjutkan Pembayaran".
+        // Pakai token yang SUDAH TERSIMPAN dari saat checkout; generate baru HANYA
+        // sebagai fallback bila order lama belum punya snap_token sama sekali.
+        if ($order->payment_channel === 'midtrans' && $order->payment_status !== 'paid' && !$order->snap_token) {
+            $order->update(['snap_token' => $this->generateSnapToken($order)]);
+        }
+
         return view('user.orderDetail', compact('order'));
     }
 

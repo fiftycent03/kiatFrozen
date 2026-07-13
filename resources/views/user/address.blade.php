@@ -1,10 +1,20 @@
 @extends('layouts.app')
 
 @section('content')
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+{{-- Konten disesuaikan dengan Tema Abyss/Pearl/Gold: variabel warna lama di-remap --}}
+{{-- ke palet baru (icy-blue → lagoon, ice-bg → pearl, deep-ocean → ink). --}}
 <style>
-    :root { --icy-blue: #0ea5e9; --frost-white: #ffffff; --deep-ocean: #0c4a6e; --ice-bg: #f0f9ff; --crystal-border: #e0f2fe; }
-    body { background-color: var(--ice-bg); font-family: 'Plus Jakarta Sans', sans-serif; }
+    :root {
+        --icy-blue: #16808A;                    /* lagoon — aksen teal */
+        --frost-white: #ffffff;
+        --deep-ocean: #101B22;                  /* ink — teks utama */
+        --ice-bg: #F6F1E7;                       /* pearl — dasar lembut */
+        --crystal-border: rgba(16,27,34,0.10);   /* border ink lembut */
+    }
+    body { background-color: var(--ice-bg); font-family: 'Inter', sans-serif; }
+    /* CTA utama & badge memakai aksen emas (gold) sesuai tema premium */
+    .btn-kiat { background: #D4AF37 !important; color: #071726 !important; }
+    .badge-default { background: #D4AF37 !important; color: #071726 !important; }
     .page-title { font-weight: 800; color: var(--deep-ocean); margin-bottom: 30px; }
     .grid-container { display: grid; grid-template-columns: 1fr 400px; gap: 30px; max-width: 1200px; margin: auto; padding: 20px; }
     

@@ -1,12 +1,14 @@
 @extends('layouts.app')
 
 @section('content')
+{{-- Konten disesuaikan dengan Tema Abyss/Pearl/Gold: variabel warna lama di-remap --}}
+{{-- ke palet baru (primary → lagoon, bg-body → pearl, text-main → ink). --}}
 <style>
     :root {
-        --primary: #0284c7;
-        --primary-soft: #e0f2fe;
-        --text-main: #0c4a6e;
-        --bg-body: #f8fafc;
+        --primary: #16808A;                       /* lagoon — aksen teal */
+        --primary-soft: rgba(22,128,138,0.12);    /* lagoon lembut */
+        --text-main: #101B22;                      /* ink — teks utama */
+        --bg-body: #F6F1E7;                         /* pearl — dasar halaman */
     }
 
     body { background-color: var(--bg-body); font-family: 'Inter', sans-serif; }
@@ -35,9 +37,9 @@
     /* Shipping Badge */
     #display-shipping { background: var(--primary-soft); color: var(--primary); padding: 2px 8px; border-radius: 6px; font-size: 0.85rem; font-weight: 700; }
 
-    /* Action Button */
-    .btn-pay { width: 100%; padding: 16px; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color: white; border: none; border-radius: 16px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 10px 20px -5px rgba(2, 132, 199, 0.3); }
-    .btn-pay:hover { transform: translateY(-2px); box-shadow: 0 15px 25px -5px rgba(2, 132, 199, 0.4); }
+    /* Action Button — CTA emas (gold) dengan teks abyss sesuai tema premium */
+    .btn-pay { width: 100%; padding: 16px; background: linear-gradient(135deg, #E4C24E 0%, #D4AF37 100%); color: #071726; border: none; border-radius: 16px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 10px 20px -5px rgba(212, 175, 55, 0.35); }
+    .btn-pay:hover { transform: translateY(-2px); box-shadow: 0 15px 25px -5px rgba(212, 175, 55, 0.45); }
     .btn-pay:disabled { background: #cbd5e1; box-shadow: none; cursor: not-allowed; transform: none; }
 
     @media (max-width: 768px) { .checkout-container { grid-template-columns: 1fr; margin: 20px auto; } }

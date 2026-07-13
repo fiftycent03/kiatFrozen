@@ -1,15 +1,26 @@
 @extends('layouts.app')
 
 @section('content')
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+{{-- Konten disesuaikan dengan Tema Abyss/Pearl/Gold: variabel warna lama di-remap --}}
+{{-- ke palet baru (icy-blue → lagoon, ice-bg → pearl, deep-ocean → ink) sehingga --}}
+{{-- seluruh kartu, input, dan aksen ikut berganti tema tanpa mengubah strukturnya. --}}
 <style>
-    :root { --icy-blue: #0ea5e9; --frost-white: #ffffff; --deep-ocean: #0c4a6e; --ice-bg: #f0f9ff; --crystal-border: #e0f2fe; }
-    body { background-color: var(--ice-bg); font-family: 'Plus Jakarta Sans', sans-serif; color: var(--deep-ocean); }
+    :root {
+        --icy-blue: #16808A;                    /* lagoon — aksen teal */
+        --frost-white: #ffffff;
+        --deep-ocean: #101B22;                  /* ink — teks utama */
+        --ice-bg: #F6F1E7;                       /* pearl — dasar lembut */
+        --crystal-border: rgba(16,27,34,0.10);   /* border ink lembut */
+    }
+    body { background-color: var(--ice-bg); font-family: 'Inter', sans-serif; color: var(--deep-ocean); }
+    /* CTA utama memakai aksen emas (gold) sesuai tema premium */
+    .btn-checkout { background: #D4AF37 !important; color: #071726 !important; }
+    .btn-checkout:disabled { background: #cbd5e1 !important; color: #ffffff !important; }
     .container-kiat { max-width: 1200px; margin: 40px auto; padding: 0 24px; display: grid; grid-template-columns: 1fr 420px; gap: 32px; }
     
     /* Card Alamat */
     .address-section { background: white; border-radius: 24px; padding: 24px; border: 1px solid var(--crystal-border); margin-bottom: 20px; }
-    .btn-change-addr { background: #f0f9ff; border: 1.5px solid var(--icy-blue); color: var(--icy-blue); padding: 8px 16px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: 0.3s; }
+    .btn-change-addr { background: #ffffff; border: 1.5px solid var(--icy-blue); color: var(--icy-blue); padding: 8px 16px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: 0.3s; }
     .btn-change-addr:hover { background: var(--icy-blue); color: white; }
 
     /* Modal Styling */
@@ -142,7 +153,8 @@
         <div class="empty-cart-card">
             <h2 style="font-weight: 800;">Keranjangmu Kosong 🧊</h2>
             <p style="color: #64748b; margin-bottom: 20px;">Yuk, isi dengan frozen food pilihanmu!</p>
-            <a href="{{ route('produk.kategori') }}" style="background:var(--icy-blue); color:white; padding:15px 30px; border-radius:15px; text-decoration:none; font-weight:800;">Mulai Belanja</a>
+            {{-- CTA emas sesuai tema baru --}}
+            <a href="{{ route('produk.kategori') }}" style="background:#D4AF37; color:#071726; padding:15px 30px; border-radius:15px; text-decoration:none; font-weight:800;">Mulai Belanja</a>
         </div>
     @endif
 </div>
@@ -229,35 +241,59 @@
 
                     if (res.snap_token && typeof window.snap !== 'undefined') {
                         // Token diterima — buka popup pembayaran Midtrans Snap.
+                        // res.success_url = /order/success/{id}, res.detail_url = /user/order/{id} (Order Detail).
                         window.snap.pay(res.snap_token, {
                             onSuccess: function(result) {
-                                // Pembayaran berhasil — update status order ke 'paid' via backend,
-                                // lalu redirect ke halaman konfirmasi. Menggunakan .finally() agar
-                                // redirect tetap terjadi walau request konfirmasi gagal jaringan.
+                                // Pembayaran berhasil TUNTAS — konfirmasi ke backend dengan status
+                                // 'paid' (mengurangi stok), lalu redirect ke halaman SUKSES.
+                                // .finally() dipakai agar redirect tetap terjadi walau request
+                                // konfirmasi gagal jaringan.
                                 fetch("{{ route('payment.confirm') }}", {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',
                                         'X-CSRF-TOKEN': "{{ csrf_token() }}"
                                     },
-                                    body: JSON.stringify({ order_id: res.order_id })
+                                    body: JSON.stringify({ order_id: res.order_id, status: 'paid' })
                                 }).finally(function() {
                                     window.location.href = res.success_url;
                                 });
                             },
                             onPending: function() {
-                                // Menunggu pembayaran (VA/QR) — arahkan ke halaman sukses,
-                                // status masih 'pending' sampai user selesai transfer.
-                                window.location.href = res.success_url;
+                                // Menunggu pembayaran (VA/QR belum ditransfer) — status order TETAP
+                                // 'pending', tapi kirim status 'pending' ke backend supaya stok tetap
+                                // dikunci untuk order ini (mencegah stok "dijual" ke pembeli lain
+                                // selagi VA masih aktif ditunggu). Redirect ke halaman ORDER DETAIL
+                                // (bukan success) — di sanalah instruksi VA/QR & status terkini tampil.
+                                fetch("{{ route('payment.confirm') }}", {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRF-TOKEN': "{{ csrf_token() }}"
+                                    },
+                                    body: JSON.stringify({ order_id: res.order_id, status: 'pending' })
+                                }).finally(function() {
+                                    window.location.href = res.detail_url;
+                                });
                             },
                             onError: function() {
-                                alert('Pembayaran gagal. Silakan coba lagi.');
-                                $btn.prop('disabled', false).text('💳 BAYAR SEKARANG');
+                                // Pembayaran gagal di sisi Midtrans — order tetap tersimpan (alur
+                                // "Pay Later"), jadi arahkan ke Order Detail agar user bisa coba
+                                // lagi lewat tombol "Lanjutkan Pembayaran" (bukan ke /cart, karena
+                                // cart sudah dikosongkan sejak order dibuat).
+                                alert('Pembayaran gagal. Silakan coba lagi dari halaman detail pesanan.');
+                                window.location.href = res.detail_url;
                             },
                             onClose: function() {
-                                // Popup ditutup tanpa bayar — order sudah dibuat,
-                                // arahkan ke halaman sukses agar bisa bayar nanti.
-                                window.location.href = res.success_url;
+                                // ============================================================
+                                // POPUP DITUTUP TANPA BAYAR (onClose) — ALUR "PAY LATER":
+                                // Order TIDAK DIHAPUS. Order sudah sah tersimpan di database
+                                // (dan sudah dilengkapi snap_token dari store()), jadi user
+                                // tinggal diarahkan ke halaman Order Detail — di sana tombol
+                                // "Lanjutkan Pembayaran" akan membuka ULANG sesi pembayaran yang
+                                // sama kapan pun dia siap membayar.
+                                // ============================================================
+                                window.location.href = res.detail_url;
                             }
                         });
                     } else {

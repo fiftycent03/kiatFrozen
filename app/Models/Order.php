@@ -19,14 +19,20 @@ class Order extends Model
         'delivery_proof', 'delivered_at',
         // Kurir yang ditugaskan admin.
         'courier_id',
+        // Penanda stok sudah dikurangi untuk order ini (diisi sekali saat onSuccess/onPending).
+        'stock_reserved_at',
+        // Snap Token Midtrans — disimpan agar tombol "Lanjutkan Pembayaran" bisa
+        // membuka ulang SESI PEMBAYARAN YANG SAMA, bukan generate token baru tiap saat.
+        'snap_token',
     ];
 
     // Cast kolom tanggal kustom ke objek Carbon agar ->format() & ->diffForHumans() bisa dipanggil.
     // Tanpa cast ini, Laravel mengembalikannya sebagai string mentah dari database.
     protected $casts = [
-        'paid_at'       => 'datetime',
-        'shipping_date' => 'datetime',
-        'delivered_at'  => 'datetime',  // cast ini yang mencegah error "format() on string"
+        'paid_at'            => 'datetime',
+        'shipping_date'      => 'datetime',
+        'delivered_at'       => 'datetime',  // cast ini yang mencegah error "format() on string"
+        'stock_reserved_at'  => 'datetime',
     ];
 
     public function items() { return $this->hasMany(OrderItem::class, 'order_id'); }

@@ -70,8 +70,12 @@ Route::get('/user/order/{id}', [OrderController::class, 'show'])->name('order.sh
 Route::post('/order/upload-proof/{id}', [OrderController::class, 'uploadProof'])->name('order.uploadProof');
 
 // Konfirmasi pembayaran Midtrans via callback browser (pengganti webhook untuk localhost).
-// Dipanggil oleh onSuccess Snap.js setelah transaksi berhasil di popup Midtrans.
+// Dipanggil oleh onSuccess/onPending Snap.js setelah transaksi mendapat hasil di popup Midtrans.
 Route::post('/payment/confirm', [OrderController::class, 'confirmPayment'])->name('payment.confirm');
+
+// CATATAN: route order.cancel (hapus order saat popup ditutup) SUDAH DIHAPUS.
+// Alur sekarang "Pay Later" — onClose tidak lagi menghapus order, order tetap
+// tersimpan dan bisa dilanjutkan pembayarannya dari halaman Order Detail (order.show).
 
 /*
 |--------------------------------------------------------------------------
