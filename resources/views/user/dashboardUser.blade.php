@@ -159,15 +159,16 @@
       </p>
 
       <div class="mt-9 flex flex-wrap items-center gap-6">
-        <button class="btn-shine inline-flex items-center gap-2 rounded-full bg-gold px-7 py-3.5 font-semibold text-abyss shadow-glow transition-transform duration-300 hover:scale-[1.04] active:scale-[0.97]">
+        <a href="{{ route('produk.kategori') }}"
+          class="btn-shine inline-flex items-center gap-2 rounded-full bg-gold px-7 py-3.5 font-semibold text-abyss shadow-glow transition-transform duration-300 hover:scale-[1.04] active:scale-[0.97]">
           <span class="shine"></span>
           <span>Mulai Belanja</span>
           <i data-lucide="arrow-right" class="h-4 w-4"></i>
-        </button>
-        <a  href="{{ route('produk.kategori') }}" class="group inline-flex items-center gap-2 text-sm font-medium text-pearl/80 transition-colors hover:text-gold">
+        </a>
+        <!-- <a  href="{{ route('produk.kategori') }}" class="group inline-flex items-center gap-2 text-sm font-medium text-pearl/80 transition-colors hover:text-gold">
           Lihat Katalog Produk
           <i data-lucide="arrow-right" class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"></i>
-        </a>
+        </a> -->
       </div>
 
       <div class="mt-11 grid grid-cols-2 gap-x-6 gap-y-5 border-t border-white/10 pt-7 sm:flex sm:flex-wrap sm:gap-x-9">
@@ -361,29 +362,29 @@
      JAVASCRIPT
 ========================================================== -->
 @php
-    // ---------------------------------------------------------------------
-    // DATA UNTUK MINI CART DRAWER (disuntik dari backend ke JavaScript)
-    // ---------------------------------------------------------------------
-    // $heroSlides : produk DB yang dipakai slider Hero + quick-add (product_id ASLI).
-    // $initialCart: isi keranjang session saat ini, di-render langsung tanpa fetch awal.
-    $dashProducts = isset($products) ? $products : collect();
-    $heroSlides = $dashProducts->map(function ($p) {
-        return [
-            'id'     => $p->id,
-            'name'   => $p->name,
-            'origin' => optional($p->category)->name ?? 'KIAT Seafood',
-            'tag'    => 'Pilihan Terbaik',
-            'price'  => (int) $p->price_per_kg,
-            'unit'   => $p->satuan ?? 'Kg',
-            'min'    => (int) ($p->min_pembelian ?? 1),
-            'stock'  => (int) $p->stock,
-            'img'    => $p->primaryImage?->path
-                            ? asset('storage/' . $p->primaryImage->path)
-                            : asset('storage/gambardepan.jpeg'),
-            'alt'    => $p->name,
-        ];
-    })->values();
-    $initialCart = array_values(session('cart', []));
+// ---------------------------------------------------------------------
+// DATA UNTUK MINI CART DRAWER (disuntik dari backend ke JavaScript)
+// ---------------------------------------------------------------------
+// $heroSlides : produk DB yang dipakai slider Hero + quick-add (product_id ASLI).
+// $initialCart: isi keranjang session saat ini, di-render langsung tanpa fetch awal.
+$dashProducts = isset($products) ? $products : collect();
+$heroSlides = $dashProducts->map(function ($p) {
+  return [
+    'id' => $p->id,
+    'name' => $p->name,
+    'origin' => optional($p->category)->name ?? 'KIAT Seafood',
+    'tag' => 'Pilihan Terbaik',
+    'price' => (int) $p->price_per_kg,
+    'unit' => $p->satuan ?? 'Kg',
+    'min' => (int) ($p->min_pembelian ?? 1),
+    'stock' => (int) $p->stock,
+    'img' => $p->primaryImage?->path
+      ? asset('storage/' . $p->primaryImage->path)
+      : asset('storage/gambardepan.jpeg'),
+    'alt' => $p->name,
+  ];
+})->values();
+$initialCart = array_values(session('cart', []));
 @endphp
 <script>
   // =====================================================================
