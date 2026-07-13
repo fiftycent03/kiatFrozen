@@ -101,9 +101,9 @@
                         </div>
                         {{-- PERINGATAN MINIMAL BELI: hanya tampil saat qty sudah di batas minimum. --}}
                         {{-- display awal dihitung server; JS akan show/hide saat qty berubah via AJAX. --}}
-                        <small id="warn-{{ $id }}" style="color: #ef4444; font-size: 0.75rem; font-weight: 700; margin-top: 5px; display: {{ (int) $item['qty'] <= $minBeli ? 'block' : 'none' }};">
+                        <!-- <small id="warn-{{ $id }}" style="color: #ef4444; font-size: 0.75rem; font-weight: 700; margin-top: 5px; display: {{ (int) $item['qty'] <= $minBeli ? 'block' : 'none' }};">
                             ⚠️ Sudah di batas minimal pembelian: {{ $minBeli }} {{ $item['satuan'] ?? 'kg' }}
-                        </small>
+                        </small> -->
                     </div>
                     <div class="row-subtotal" data-id="{{ $id }}" style="font-weight:800; font-size: 1.1rem;">Rp {{ number_format($item['subtotal'], 0, ',', '.') }}</div>
                 </div>

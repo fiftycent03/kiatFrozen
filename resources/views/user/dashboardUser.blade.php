@@ -104,12 +104,12 @@
         Kami</a>
       <a href="{{ route('produk.kategori') }}"
         class="text-sm font-medium text-pearl/70 transition-colors hover:text-gold">Katalog Produk</a>
-      <a href="#promo" class="relative flex items-center text-sm font-medium text-pearl/70 transition-colors hover:text-gold">
-        Promo
-        <span class="relative ml-1.5 inline-flex h-2 w-2">
+      <!-- <a href="#promo" class="relative flex items-center text-sm font-medium text-pearl/70 transition-colors hover:text-gold">
+        Promo -->
+        <!-- <span class="relative ml-1.5 inline-flex h-2 w-2">
           <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-coral/70"></span>
           <span class="relative inline-flex h-2 w-2 rounded-full bg-coral"></span>
-        </span>
+        </span> -->
       </a>
     </nav>
 
@@ -118,12 +118,15 @@
         <i data-lucide="package" class="h-5 w-5"></i>
         <span class="text-xs font-medium">Pesanan</span>
       </button>
-      <button class="grid h-10 w-10 place-items-center rounded-full text-pearl/80 transition hover:bg-white/5 hover:text-gold" title="Akun Saya">
+      <a href="{{ route('login') }}"
+        class="grid h-10 w-10 place-items-center rounded-full text-pearl/80 transition hover:bg-white/5 hover:text-gold"
+        title="Akun Saya">
         <i data-lucide="user" class="h-5 w-5"></i>
-      </button>
+      </a>
       <button id="cartBtn" class="relative grid h-10 w-10 place-items-center rounded-full text-pearl/80 transition hover:bg-white/5 hover:text-gold" title="Keranjang Belanja">
         <i data-lucide="shopping-cart" class="h-5 w-5"></i>
-        <span id="cartBadge" class="absolute -right-0.5 -top-0.5 grid h-[18px] w-[18px] min-w-[18px] place-items-center rounded-full bg-gold px-1 font-mono text-[10px] font-bold text-abyss">0</span>
+        {{-- Badge di-seed dari jumlah item keranjang session (server-side), lalu di-update oleh JS. --}}
+        <span id="cartBadge" class="absolute -right-0.5 -top-0.5 grid h-[18px] w-[18px] min-w-[18px] place-items-center rounded-full bg-gold px-1 font-mono text-[10px] font-bold text-abyss">{{ count(session('cart', [])) }}</span>
       </button>
       <button id="menuToggle" class="grid h-10 w-10 place-items-center rounded-full text-pearl/80 transition hover:bg-white/5 hover:text-gold md:hidden">
         <i data-lucide="menu" id="menuIconOpen" class="h-5 w-5"></i>
@@ -347,7 +350,8 @@
   <div class="space-y-4 border-t border-ink/10 px-6 py-5">
     <div class="flex items-center justify-between"><span class="font-mono text-xs uppercase tracking-wider text-ink/50">Subtotal</span><span id="cartSubtotal" class="font-mono text-base font-bold text-ink">Rp0</span></div>
     <div class="flex items-center gap-2 text-xs text-ink/50"><i data-lucide="badge-check" class="h-4 w-4 flex-none text-lagoon"></i>Dikemas dingin &amp; higienis — bersertifikat Halal MUI</div>
-    <button class="btn-shine w-full rounded-full bg-gold py-3.5 font-semibold text-abyss shadow-glow transition-transform hover:scale-[1.02] active:scale-[0.98]"><span class="shine"></span>Checkout Sekarang</button>
+    {{-- Tombol checkout drawer → diarahkan ke halaman checkout backend oleh JS. --}}
+    <button id="checkoutDrawerBtn" class="btn-shine w-full rounded-full bg-gold py-3.5 font-semibold text-abyss shadow-glow transition-transform hover:scale-[1.02] active:scale-[0.98]"><span class="shine"></span>Checkout Sekarang</button>
   </div>
 </aside>
 
@@ -356,32 +360,61 @@
 <!-- =========================================================
      JAVASCRIPT
 ========================================================== -->
+@php
+    // ---------------------------------------------------------------------
+    // DATA UNTUK MINI CART DRAWER (disuntik dari backend ke JavaScript)
+    // ---------------------------------------------------------------------
+    // $heroSlides : produk DB yang dipakai slider Hero + quick-add (product_id ASLI).
+    // $initialCart: isi keranjang session saat ini, di-render langsung tanpa fetch awal.
+    $dashProducts = isset($products) ? $products : collect();
+    $heroSlides = $dashProducts->map(function ($p) {
+        return [
+            'id'     => $p->id,
+            'name'   => $p->name,
+            'origin' => optional($p->category)->name ?? 'KIAT Seafood',
+            'tag'    => 'Pilihan Terbaik',
+            'price'  => (int) $p->price_per_kg,
+            'unit'   => $p->satuan ?? 'Kg',
+            'min'    => (int) ($p->min_pembelian ?? 1),
+            'stock'  => (int) $p->stock,
+            'img'    => $p->primaryImage?->path
+                            ? asset('storage/' . $p->primaryImage->path)
+                            : asset('storage/gambardepan.jpeg'),
+            'alt'    => $p->name,
+        ];
+    })->values();
+    $initialCart = array_values(session('cart', []));
+@endphp
 <script>
-  /* Data produk Hero - Disuntikkan aset lokal gambardepan.jpeg */
-  const heroProducts = [
-    {
-      id: 'kiat-unggulan',
-      name: 'Seafood KIAT Frozen',
-      origin: 'Surabaya, Jawa Timur',
-      tag: 'Pilihan Terbaik',
-      price: '', // Kosongkan harga statis jika belum perlu
-      unit: '', 
-      img: '{{ asset("storage/gambardepan.jpeg") }}', // Panggil lokal file Boss di sini
-      alt: 'Produk KIAT Frozen',
-    },
-    {
-      id: 'salmon',
-      name: 'Salmon Norwegia Fillet',
-      origin: 'Perairan Atlantik Utara',
-      tag: 'Air Terbang',
-      price: 219000,
-      unit: '300 g',
-      img: 'https://images.unsplash.com/photo-1499125562588-29fb8a56b5d5?auto=format&fit=crop&w=1000&q=80',
-      alt: 'Fillet Salmon Norwegia segar',
-    }
-  ];
+  // =====================================================================
+  // INTEGRASI BACKEND KERANJANG (session-based Laravel, via Fetch API)
+  // ---------------------------------------------------------------------
+  // Tidak ada lagi array dummy. heroProducts diisi dari DATABASE ($heroSlides)
+  // dan `cart` di-seed dari keranjang SESSION ($initialCart). Semua aksi
+  // (add/qty/remove) menembak endpoint CartController & menyegarkan drawer.
+  // =====================================================================
+  const CART_CSRF = '{{ csrf_token() }}';
+  const CART_ENDPOINTS = {
+    data:       "{{ route('cart.data') }}",   // GET  snapshot keranjang (JSON)
+    add:        "{{ route('cart.add') }}",    // POST tambah item
+    base:       "{{ url('/cart') }}",         // + '/{id}/qty' (POST) atau '/{id}' (DELETE)
+    checkout:   "{{ route('checkout.index') }}",
+    katalog:    "{{ route('produk.kategori') }}",
+  };
 
-  let cart = [];
+  // Slide Hero dari DB; fallback 1 slide dekoratif bila belum ada produk aktif.
+  let heroProducts = @json($heroSlides);
+  if (!Array.isArray(heroProducts) || heroProducts.length === 0) {
+    heroProducts = [{
+      id: null, name: 'Seafood KIAT Frozen', origin: 'Surabaya, Jawa Timur',
+      tag: 'Pilihan Terbaik', price: 0, unit: '', min: 1, stock: 0,
+      img: '{{ asset("storage/gambardepan.jpeg") }}', alt: 'Produk KIAT Frozen',
+    }];
+  }
+
+  // State keranjang di-seed dari session server (hindari kedip kosong), lalu
+  // selalu di-replace oleh snapshot JSON backend setiap kali ada perubahan.
+  let cart = @json($initialCart);
   function formatRupiah(n) { return n ? 'Rp' + n.toLocaleString('id-ID') : ''; }
 
   function renderIcons() {
@@ -466,39 +499,109 @@
   function closeCart() { cartPanel.classList.add('translate-x-full'); cartOverlay.classList.add('opacity-0', 'pointer-events-none'); document.documentElement.classList.remove('overflow-hidden'); }
   cartBtn.addEventListener('click', openCart); closeCartBtn.addEventListener('click', closeCart); cartOverlay.addEventListener('click', closeCart);
 
+  // ---------------------------------------------------------------------
+  // RENDER MINI CART DRAWER dari state `cart`. Bentuk tiap item mengikuti
+  // struktur keranjang SESSION Laravel: { product_id, name, price, qty,
+  // satuan, image (path), subtotal }.
+  // ---------------------------------------------------------------------
   function renderCart() {
-    const totalQty = cart.reduce((sum, it) => sum + it.qty, 0); cartBadge.textContent = totalQty;
-    const subtotal = cart.reduce((sum, it) => sum + it.qty * it.price, 0); cartSubtotalEl.textContent = formatRupiah(subtotal);
+    const totalQty = cart.reduce((sum, it) => sum + Number(it.qty), 0);
+    const subtotal = cart.reduce((sum, it) => sum + Number(it.subtotal), 0);
+    cartBadge.textContent = totalQty;                                  // badge = total kuantitas
+    cartSubtotalEl.textContent = 'Rp' + subtotal.toLocaleString('id-ID');
+
     if (cart.length === 0) {
       cartItemsContainer.innerHTML = `<div class="flex h-full flex-col items-center justify-center gap-3 py-16 text-center"><i data-lucide="shopping-cart" class="h-10 w-10 text-ink/20"></i><p class="text-sm text-ink/50">Keranjang kamu masih kosong.</p></div>`;
     } else {
-      cartItemsContainer.innerHTML = cart.map((item) => `
+      cartItemsContainer.innerHTML = cart.map((item) => {
+        // Path gambar dari session ('products/xx.jpg') → URL publik '/storage/...'.
+        const img = item.image ? ('/storage/' + item.image) : 'https://placehold.co/64x64?text=KIAT';
+        const sub = Number(item.subtotal).toLocaleString('id-ID');
+        return `
         <div class="flex gap-3 border-b border-ink/5 pb-4">
-          <img src="${item.img}" alt="${item.name}" class="h-16 w-16 flex-none rounded-xl object-cover" />
+          <img src="${img}" alt="${item.name}" class="h-16 w-16 flex-none rounded-xl object-cover" />
           <div class="flex-1">
-            <div class="flex items-start justify-between gap-2"><p class="font-display text-sm font-semibold leading-snug text-ink">${item.name}</p><button onclick="removeCartItem('${item.id}')" class="text-ink/30 transition hover:text-coral"><i data-lucide="trash-2" class="h-4 w-4"></i></button></div>
-            <p class="text-xs text-ink/50">${item.unit}</p>
+            <div class="flex items-start justify-between gap-2"><p class="font-display text-sm font-semibold leading-snug text-ink">${item.name}</p><button onclick="removeCartItem(${item.product_id})" class="text-ink/30 transition hover:text-coral"><i data-lucide="trash-2" class="h-4 w-4"></i></button></div>
+            <p class="text-xs text-ink/50">${item.satuan || ''}</p>
             <div class="mt-2 flex items-center justify-between">
               <div class="flex items-center gap-2 rounded-full border border-ink/10 px-1">
-                <button onclick="changeQty('${item.id}', -1)" class="grid h-6 w-6 place-items-center text-ink/60 hover:text-ink"><i data-lucide="minus" class="h-3 w-3"></i></button><span class="w-4 text-center font-mono text-xs">${item.qty}</span><button onclick="changeQty('${item.id}', 1)" class="grid h-6 w-6 place-items-center text-ink/60 hover:text-ink"><i data-lucide="plus" class="h-3 w-3"></i></button>
-              </div><span class="font-mono text-sm font-semibold text-ink">${formatRupiah(item.price * item.qty)}</span>
+                <button onclick="changeQty(${item.product_id}, 'decrease')" class="grid h-6 w-6 place-items-center text-ink/60 hover:text-ink"><i data-lucide="minus" class="h-3 w-3"></i></button><span class="w-6 text-center font-mono text-xs">${item.qty}</span><button onclick="changeQty(${item.product_id}, 'increase')" class="grid h-6 w-6 place-items-center text-ink/60 hover:text-ink"><i data-lucide="plus" class="h-3 w-3"></i></button>
+              </div><span class="font-mono text-sm font-semibold text-ink">Rp${sub}</span>
             </div>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
     }
     renderIcons();
   }
 
-  function changeQty(id, delta) { const item = cart.find((it) => it.id === id); if (!item) return; item.qty += delta; if (item.qty <= 0) { cart = cart.filter((it) => it.id !== id); } renderCart(); }
-  function removeCartItem(id) { cart = cart.filter((it) => it.id !== id); renderCart(); }
-  function addToCart(id) {
-    const product = heroProducts.find((p) => p.id === id); if (!product || !product.price) return;
-    const existing = cart.find((it) => it.id === id); if (existing) { existing.qty += 1; } else { cart.push({ id: product.id, name: product.name, unit: product.unit, price: product.price, qty: 1, img: product.img }); }
-    renderCart(); pulseBadge(); showToast(product.name + ' ditambahkan ke keranjang');
+  // Ambil snapshot keranjang terbaru dari server (GET cart.data) → update & render.
+  function refreshCart() {
+    return fetch(CART_ENDPOINTS.data, { headers: { 'Accept': 'application/json' } })
+      .then((r) => r.json())
+      .then((d) => { cart = d.items || []; renderCart(); })
+      .catch((err) => console.warn('Gagal memuat keranjang:', err));
+  }
+
+  // +/- kuantitas → endpoint updateQty (POST, JSON). Backend menegakkan aturan
+  // minimal pembelian; setelah itu drawer disegarkan dari snapshot server.
+  function changeQty(id, action) {
+    fetch(CART_ENDPOINTS.base + '/' + id + '/qty', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CART_CSRF, 'Accept': 'application/json' },
+      body: JSON.stringify({ action }),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res && res.success === false && res.at_min) showToast(res.message || 'Sudah di batas minimal pembelian');
+        return refreshCart();
+      })
+      .catch(() => showToast('Terjadi kesalahan jaringan'));
+  }
+
+  // Hapus item → endpoint remove (DELETE). Balasannya snapshot keranjang terbaru.
+  function removeCartItem(id) {
+    fetch(CART_ENDPOINTS.base + '/' + id, {
+      method: 'DELETE',
+      headers: { 'X-CSRF-TOKEN': CART_CSRF, 'Accept': 'application/json' },
+    })
+      .then((r) => r.json())
+      .then((d) => { cart = d.items || []; renderCart(); })
+      .catch(() => showToast('Terjadi kesalahan jaringan'));
+  }
+
+  // Tambah ke keranjang → endpoint add (POST). id null = slide fallback → ke katalog.
+  function addToCart(id, qty) {
+    if (!id) { window.location.href = CART_ENDPOINTS.katalog; return; }
+    fetch(CART_ENDPOINTS.add, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CART_CSRF, 'Accept': 'application/json' },
+      body: JSON.stringify({ product_id: id, qty: qty || null }),
+    })
+      .then((r) => r.json().then((d) => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => {
+        if (!ok || !d.success) { showToast(d.message || 'Gagal menambah ke keranjang'); return; }
+        cart = d.items || [];                          // snapshot terbaru dari server
+        renderCart(); pulseBadge(); openCart();        // update badge/subtotal & buka drawer
+        showToast(d.message || 'Ditambahkan ke keranjang');
+      })
+      .catch(() => showToast('Terjadi kesalahan jaringan'));
   }
 
   function pulseBadge() { cartBadge.classList.remove('badge-pulse'); void cartBadge.offsetWidth; cartBadge.classList.add('badge-pulse'); }
-  document.getElementById('quickAddBtn').addEventListener('click', () => { addToCart(heroProducts[currentSlide].id); });
+
+  // Quick-add dari kartu Hero: kirim product_id ASLI + min pembelian slide aktif.
+  document.getElementById('quickAddBtn').addEventListener('click', () => {
+    const p = heroProducts[currentSlide];
+    if (p && p.id && p.stock <= 0) { showToast('Stok produk ini sedang habis'); return; }
+    addToCart(p ? p.id : null, p ? p.min : null);
+  });
+
+  // Tombol "Checkout Sekarang" di drawer → lanjut ke halaman checkout backend.
+  document.getElementById('checkoutDrawerBtn').addEventListener('click', () => {
+    if (!cart.length) { showToast('Keranjang masih kosong'); return; }
+    window.location.href = CART_ENDPOINTS.checkout;
+  });
 
   const toastEl = document.getElementById('toast'); const toastTextEl = document.getElementById('toastText'); let toastTimer = null;
   function showToast(message) { toastTextEl.textContent = message; toastEl.classList.remove('opacity-0', 'translate-y-3'); clearTimeout(toastTimer); toastTimer = setTimeout(() => { toastEl.classList.add('opacity-0', 'translate-y-3'); }, 2200); }

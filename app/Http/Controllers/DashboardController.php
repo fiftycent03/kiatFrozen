@@ -101,8 +101,17 @@ class DashboardController extends Controller
         // Ambil semua kategori AKTIF beserta gambarnya untuk dijadikan card background-image.
         $categories = \App\Models\Category::where('is_active', 1)->latest()->get();
 
-        // Kirim data $categories ke view dashboardUser
-        return view('user.dashboardUser', compact('categories'));
+        // Produk unggulan untuk showcase Hero + tombol quick-add di Mini Cart Drawer.
+        // Diambil dari DB (bukan array dummy) agar quick-add memakai product_id ASLI
+        // sehingga menulis ke keranjang session yang sama dengan halaman katalog.
+        $products = \App\Models\Product::where('is_active', 1)
+            ->with(['primaryImage', 'category'])
+            ->latest()
+            ->take(6)
+            ->get();
+
+        // Kirim data $categories & $products ke view dashboardUser
+        return view('user.dashboardUser', compact('categories', 'products'));
     }
 
     // 2. HALAMAN RIWAYAT PESANAN (FITUR BARU)

@@ -59,6 +59,11 @@ Route::post('/cart/buy-now', [CartController::class, 'buyNow'])->name('cart.buyN
 Route::post('/cart/{product}/qty', [CartController::class, 'updateQty'])->name('cart.updateQty');
 Route::delete('/cart/{product}', [CartController::class, 'remove'])->name('cart.remove');
 
+// Snapshot JSON isi keranjang — disantap oleh Mini Cart Drawer (fetch) untuk
+// menampilkan item & subtotal secara dinamis tanpa reload. Wajib di ATAS route
+// GET '/cart' bukan masalah karena path '/cart/data' lebih spesifik.
+Route::get('/cart/data', [CartController::class, 'data'])->name('cart.data');
+
 // API Wilayah & Ongkir — PUBLIK agar kalkulasi ongkir di form checkout jalan tanpa login.
 Route::get('/api/cities/{province}', [OrderController::class, 'getCities']);
 Route::get('/api/districts/{city}', [OrderController::class, 'getDistricts']);

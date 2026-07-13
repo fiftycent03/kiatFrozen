@@ -16,6 +16,26 @@ class CartController extends Controller
         session(['cart' => $cart]);
     }
 
+    // Snapshot ringkas isi keranjang untuk dikirim sebagai JSON ke Mini Cart Drawer.
+    // Bentuknya: jumlah jenis produk (count), subtotal, dan daftar item (values saja
+    // agar mudah di-loop di sisi JavaScript).
+    private function cartSnapshot(): array
+    {
+        $cart = $this->getCart();
+        return [
+            'count'    => count($cart),
+            'subtotal' => (int) collect($cart)->sum('subtotal'),
+            'items'    => array_values($cart),
+        ];
+    }
+
+    // Endpoint JSON: dipanggil Mini Cart Drawer (fetch) untuk mengambil isi keranjang
+    // terbaru — dipakai saat halaman dimuat & sebagai penyegar setelah tiap perubahan.
+    public function data()
+    {
+        return response()->json($this->cartSnapshot());
+    }
+
     public function index() {
         $cart  = $this->getCart();
         $total = collect($cart)->sum('subtotal');
@@ -39,7 +59,12 @@ class CartController extends Controller
         $qty = $data['qty'] ?? $minBeli;
 
         if ($qty < $minBeli) {
-            return back()->with('error', "Minimal pembelian adalah {$minBeli} {$product->satuan}.");
+            $msg = "Minimal pembelian adalah {$minBeli} {$product->satuan}.";
+            // AJAX (mini cart drawer): balas JSON gagal tanpa redirect.
+            if ($request->ajax() || $request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $msg], 422);
+            }
+            return back()->with('error', $msg);
         }
 
         $cart = $this->getCart();
@@ -60,6 +85,15 @@ class CartController extends Controller
 
         $cart[$product->id]['subtotal'] = $cart[$product->id]['price'] * $cart[$product->id]['qty'];
         $this->saveCart($cart);
+
+        // AJAX (tombol quick-add di Mini Cart Drawer / halaman lain): balas JSON berisi
+        // snapshot keranjang terbaru agar drawer & badge ter-update TANPA reload halaman.
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json(array_merge(
+                ['success' => true, 'message' => 'Produk ditambahkan ke keranjang.'],
+                $this->cartSnapshot()
+            ));
+        }
 
         // PERBAIKAN: Menggunakan back() agar tetap di katalog, bukan redirect ke cart
         return back()->with('success', 'Produk berhasil ditambahkan ke keranjang!');
@@ -160,13 +194,19 @@ class CartController extends Controller
         return redirect()->route('checkout.index');
     }
 
-    public function remove($productId)
+    public function remove(Request $request, $productId)
     {
         $cart = $this->getCart();
         if (isset($cart[$productId])) {
             unset($cart[$productId]);
             $this->saveCart($cart);
         }
+
+        // AJAX (tombol hapus di Mini Cart Drawer): balas JSON snapshot terbaru.
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json(array_merge(['success' => true], $this->cartSnapshot()));
+        }
+
         return back()->with('success', 'Produk dihapus.');
     }
 }
