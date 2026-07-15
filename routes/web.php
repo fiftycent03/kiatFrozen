@@ -42,6 +42,13 @@ Route::get('/', [DashboardController::class, 'user'])->name('home');
 // dipakai oleh banyak link di blade (header/navbar, riwayat, detail pesanan).
 Route::get('/user/dashboard', [DashboardController::class, 'user'])->name('user.dashboard');
 
+// Halaman Detail Produk (galeri foto + pilihan Pcs/Kg) — terbuka untuk publik.
+// Didaftarkan SEBELUM '/produk/{kategori?}' agar '/produk/detail/xxx' tidak
+// pernah tertangkap sebagai nilai {kategori} (path ini py 2 segmen, sedangkan
+// {kategori?} hanya menangkap SATU segmen setelah /produk, jadi sebenarnya
+// tidak akan bentrok — urutan ini murni untuk kejelasan/keterbacaan rute).
+Route::get('/produk/detail/{product:slug}', [KatalogController::class, 'show'])->name('produk.show');
+
 // Katalog produk per kategori — terbuka untuk publik.
 Route::get('/produk/{kategori?}', [KatalogController::class, 'index'])->name('produk.kategori');
 
@@ -74,13 +81,10 @@ Route::get('/order/success/{id}', [OrderController::class, 'success'])->name('or
 Route::get('/user/order/{id}', [OrderController::class, 'show'])->name('order.show');
 Route::post('/order/upload-proof/{id}', [OrderController::class, 'uploadProof'])->name('order.uploadProof');
 
-// Konfirmasi pembayaran Midtrans via callback browser (pengganti webhook untuk localhost).
-// Dipanggil oleh onSuccess/onPending Snap.js setelah transaksi mendapat hasil di popup Midtrans.
-Route::post('/payment/confirm', [OrderController::class, 'confirmPayment'])->name('payment.confirm');
-
-// CATATAN: route order.cancel (hapus order saat popup ditutup) SUDAH DIHAPUS.
-// Alur sekarang "Pay Later" — onClose tidak lagi menghapus order, order tetap
-// tersimpan dan bisa dilanjutkan pembayarannya dari halaman Order Detail (order.show).
+// CATATAN: route 'payment.confirm' (callback Midtrans) SUDAH DIHAPUS bersama
+// seluruh integrasi Midtrans. Alur pembayaran sekarang Transfer Bank Manual:
+// user upload bukti lewat order.uploadProof (di atas), Admin memverifikasi
+// lewat tombol ACC/Tolak di panel Admin (lihat grup route 'admin' di bawah).
 
 /*
 |--------------------------------------------------------------------------
@@ -129,6 +133,9 @@ Route::middleware(['admin'])->group(function () {
     Route::get('/admin/orders', [AdminOrderController::class, 'index'])->name('admin.orders.index');
     Route::put('/admin/orders/{id}', [AdminOrderController::class, 'update'])->name('admin.orders.update');
     Route::post('/orders/{order}/quick-process', [AdminOrderController::class, 'quickProcess'])->name('admin.orders.quick-process');
+    // Verifikasi bukti Transfer Bank Manual (menggantikan callback Midtrans).
+    Route::post('/admin/orders/{order}/approve-payment', [AdminOrderController::class, 'approvePayment'])->name('admin.orders.approve-payment');
+    Route::post('/admin/orders/{order}/reject-payment', [AdminOrderController::class, 'rejectPayment'])->name('admin.orders.reject-payment');
     Route::get('/admin/orders/{id}/download-proof', [AdminOrderController::class, 'downloadProof'])->name('admin.orders.download-proof');
     Route::get('/admin/sales', [AdminOrderController::class, 'salesReport'])->name('admin.sales.index');
     // Manajemen akun kurir.

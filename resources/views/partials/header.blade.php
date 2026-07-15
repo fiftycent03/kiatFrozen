@@ -13,7 +13,7 @@
             <img src="{{ asset('storage/Logo_Kiat.png') }}" alt="Logo Karya Inti Alam Tunggal"
                 class="h-11 w-11 rounded-full object-cover shadow-md border border-white/20" />
             <span class="flex flex-col leading-none">
-                <span class="font-display text-lg font-semibold tracking-tight text-pearl">KIAT</span>
+                <span class="font-display text-lg font-semibold tracking-tight text-pearl">KIAT SURABAYA</span>
                 <span class="mt-1 font-mono text-[9px] uppercase tracking-[0.18em] text-pearl/50">Karya Inti Alam Tunggal</span>
             </span>
         </a>

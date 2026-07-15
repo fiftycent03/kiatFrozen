@@ -35,14 +35,9 @@ return [
         ],
     ],
 
-    // Konfigurasi Midtrans (Payment Gateway). Isi kredensial di file .env:
-    // MIDTRANS_SERVER_KEY, MIDTRANS_CLIENT_KEY, MIDTRANS_IS_PRODUCTION (true/false)
-    'midtrans' => [
-        'server_key'    => env('MIDTRANS_SERVER_KEY'),
-        'client_key'    => env('MIDTRANS_CLIENT_KEY'),
-        'is_production' => env('MIDTRANS_IS_PRODUCTION', false),
-        'is_sanitized'  => true,
-        'is_3ds'        => true,
-    ],
+    // Konfigurasi Midtrans (Payment Gateway) SUDAH DIHAPUS — alur pembayaran
+    // kini Transfer Bank Manual (lihat OrderController@uploadProof &
+    // Admin\OrderController@approvePayment/rejectPayment). Variabel
+    // MIDTRANS_* di file .env boleh dihapus juga jika sudah tidak dipakai.
 
 ];

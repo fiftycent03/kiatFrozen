@@ -6,8 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Produk - KIAT Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script> 
-    
+    <script src="https://unpkg.com/lucide@latest"></script>
+    {{-- Alpine.js: toggle Pcs/Kg + repeater baris Varian (sama seperti form Tambah) --}}
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
     <style>
         .toggle-checkbox:checked+.toggle-label .toggle-circle {
             transform: translateX(1.5rem);
@@ -16,6 +18,8 @@
         .toggle-checkbox:checked+.toggle-label {
             background-color: #3b82f6;
         }
+
+        [x-cloak] { display: none !important; }
     </style>
 </head>
 
@@ -41,7 +45,20 @@
         </div>
         @endif
 
-        <form action="{{ route('admin.products.update', $product) }}" method="POST" enctype="multipart/form-data">
+        {{-- x-data di-seed dari data produk yang sudah ada di database:
+             `satuan` dari $product->satuan, `variants` dari $product->variants (jika kosong,
+             mulai dengan 1 baris kosong supaya Admin langsung bisa mengisi saat ganti ke Kg). --}}
+        <form action="{{ route('admin.products.update', $product) }}" method="POST" enctype="multipart/form-data"
+              x-data="{
+                  satuan: '{{ old('satuan', $product->satuan) }}',
+                  variants: {{ old('variants')
+                        ? Js::from(old('variants'))
+                        : ($product->variants->isNotEmpty()
+                            ? Js::from($product->variants->map(fn($v) => ['label' => $v->label, 'price' => $v->price, 'stock' => $v->stock])->values())
+                            : '[{label:\'\',price:\'\',stock:\'\'}]') }},
+                  addVariant() { this.variants.push({ label: '', price: '', stock: '' }); },
+                  removeVariant(i) { if (this.variants.length > 1) this.variants.splice(i, 1); },
+              }">
             @csrf
             @method('PUT')
 
@@ -66,7 +83,7 @@
                     <option value="">-- Pilih Kategori --</option>
                     {{-- Loop Kategori dari Database --}}
                     @foreach(\App\Models\Category::where('is_active',1)->get() as $cat)
-                        <option value="{{ $cat->id }}" 
+                        <option value="{{ $cat->id }}"
                             {{ old('category_id', $product->category_id) == $cat->id ? 'selected' : '' }}>
                             {{ $cat->name }}
                         </option>
@@ -74,39 +91,78 @@
                 </select>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                    <label class="block text-sm font-semibold mb-2 text-gray-700">Harga per Kg (Rp)</label>
-                    <input type="number" name="price_per_kg" min="0"
-                        value="{{ old('price_per_kg', $product->price_per_kg) }}" required
-                        class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+            {{-- ============================================================= --}}
+            {{-- TIPE PENJUALAN / SATUAN — dropdown tunggal, mengendalikan       --}}
+            {{-- logika Pcs/Kg via x-model="satuan" (lihat komentar sama di      --}}
+            {{-- product-create.blade.php).                                     --}}
+            {{-- ============================================================= --}}
+            <div class="mb-6">
+                <label class="block text-sm font-semibold mb-2 text-gray-700">Tipe Penjualan (Satuan)</label>
+                <select name="satuan" x-model="satuan" required
+                    class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    <option value="pcs">Pcs — harga & stok tunggal</option>
+                    <option value="kg">Kg — wajib isi varian potongan/gramasi</option>
+                </select>
+            </div>
+
+            {{-- CABANG "PCS": harga & stok utama (disabled saat Kg agar tidak ikut terkirim). --}}
+            <div x-show="satuan === 'pcs'" x-cloak>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2 text-gray-700">Harga per Kg (Rp)</label>
+                        <input type="number" name="price_per_kg" :disabled="satuan === 'kg'" min="0"
+                            value="{{ old('price_per_kg', $product->price_per_kg) }}"
+                            class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold mb-2 text-blue-600 font-bold">Stok Saat Ini</label>
+                        <input type="number" name="stock" :disabled="satuan === 'kg'" min="0"
+                            value="{{ old('stock', $product->stock) }}"
+                            class="w-full border border-blue-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-blue-50">
+                    </div>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-semibold mb-2 text-blue-600 font-bold">Stok Saat Ini</label>
-                    <input type="number" name="stock" min="0"
-                        value="{{ old('stock', $product->stock) }}" required
-                        class="w-full border border-blue-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-blue-50">
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold mb-2 text-gray-700">Minimal Pembelian</label>
+                    <input type="number" name="min_pembelian" :disabled="satuan === 'kg'" min="1"
+                        value="{{ old('min_pembelian', $product->min_pembelian) }}"
+                        class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                    <label class="block text-sm font-semibold mb-2 text-gray-700">Minimal Pembelian</label>
-                    <input type="number" name="min_pembelian" min="1"
-                        value="{{ old('min_pembelian', $product->min_pembelian) }}" required
-                        class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+            {{-- CABANG "KG": repeater Varian, seeded dari $product->variants (lihat x-data di atas). --}}
+            <div x-show="satuan === 'kg'" x-cloak class="mb-6">
+                <label class="block text-sm font-semibold mb-3 text-gray-700">Varian Potongan / Gramasi</label>
+
+                <div class="space-y-3">
+                    <template x-for="(variant, index) in variants" :key="index">
+                        <div class="grid grid-cols-1 sm:grid-cols-[2fr_1.2fr_1fr_auto] gap-3 items-center bg-gray-50 border border-gray-200 rounded-xl p-3">
+                            <input type="text" placeholder="Nama Potongan (mis. 500 gram)"
+                                x-model="variant.label" :name="'variants[' + index + '][label]'"
+                                :disabled="satuan === 'pcs'"
+                                class="border rounded-lg px-3 py-2 text-sm">
+                            <input type="number" placeholder="Harga" min="0"
+                                x-model="variant.price" :name="'variants[' + index + '][price]'"
+                                :disabled="satuan === 'pcs'"
+                                class="border rounded-lg px-3 py-2 text-sm">
+                            <input type="number" placeholder="Stok" min="0"
+                                x-model="variant.stock" :name="'variants[' + index + '][stock]'"
+                                :disabled="satuan === 'pcs'"
+                                class="border rounded-lg px-3 py-2 text-sm">
+                            <button type="button" @click="removeVariant(index)"
+                                class="text-red-500 hover:text-red-700 text-sm font-semibold px-2 py-2">
+                                Hapus
+                            </button>
+                        </div>
+                    </template>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-semibold mb-2 text-gray-700">Satuan</label>
-                    <select name="satuan" required
-                        class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
-                        <option value="">-- Pilih Satuan --</option>
-                        <option value="kg" {{ old('satuan', $product->satuan) == 'kg' ? 'selected' : '' }}>Kg</option>
-                        <option value="pcs" {{ old('satuan', $product->satuan) == 'pcs' ? 'selected' : '' }}>Pcs</option>
-                    </select>
-                </div>
+                <button type="button" @click="addVariant()"
+                    class="mt-3 text-sm font-semibold text-blue-600 hover:text-blue-800">
+                    + Tambah Varian
+                </button>
+                <p class="mt-2 text-xs text-amber-600">Menyimpan akan MENGGANTI seluruh varian lama dengan daftar di atas.</p>
             </div>
 
             <div class="mb-6">
@@ -115,33 +171,51 @@
                     class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">{{ old('description', $product->description) }}</textarea>
             </div>
 
+            {{-- ============================================================= --}}
+            {{-- GALERI FOTO — menampilkan SEMUA foto produk (bukan cuma satu   --}}
+            {{-- seperti versi lama). Tiap foto punya: radio "Jadikan Utama"    --}}
+            {{-- + checkbox "Hapus". Ditambah input upload multi-foto baru      --}}
+            {{-- (total foto lama tersisa + foto baru maksimal 5 — divalidasi   --}}
+            {{-- ProductController@update).                                    --}}
+            {{-- ============================================================= --}}
             <div class="mb-8">
-                <label class="block text-sm font-semibold mb-2 text-gray-700">Foto Produk</label>
-                
-                <div class="flex flex-col md:flex-row gap-6 items-start">
-                    <div class="shrink-0 relative group">
-                        @php
-                            $currentImage = $product->images->first() 
-                                            ? asset('storage/' . $product->images->first()->path) 
-                                            : 'https://placehold.co/400?text=No+Image';
-                        @endphp
-                        <img id="image-preview" 
-                             src="{{ $currentImage }}" 
-                             class="w-40 h-40 object-cover rounded-xl border border-gray-200 shadow-sm bg-gray-50">
-                        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition rounded-xl"></div>
-                    </div>
+                <label class="block text-sm font-semibold mb-3 text-gray-700">Galeri Foto (maksimal 5 total)</label>
 
-                    <div class="w-full">
-                        <label class="flex flex-col w-full h-40 border-2 border-dashed border-gray-300 rounded-xl hover:bg-blue-50 hover:border-blue-400 transition cursor-pointer justify-center items-center group">
-                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                                <i data-lucide="image-plus" class="w-8 h-8 text-gray-400 mb-2 group-hover:text-blue-500 transition"></i>
-                                <p class="text-sm text-gray-500 font-medium group-hover:text-blue-600">Klik untuk ganti foto baru</p>
-                                <p class="text-xs text-gray-400 mt-1">Foto lama akan otomatis terganti</p>
+                @if($product->images->isEmpty())
+                    <p class="text-sm text-gray-400 italic mb-4">Belum ada foto untuk produk ini.</p>
+                @else
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+                        @foreach($product->images as $img)
+                            <div class="relative border border-gray-200 rounded-xl p-3 text-center">
+                                <img src="{{ asset('storage/' . $img->path) }}"
+                                     class="w-full h-28 object-cover rounded-lg border border-gray-100 mb-2">
+
+                                <label class="flex items-center justify-center gap-1.5 text-xs font-semibold text-gray-600 mb-1 cursor-pointer">
+                                    <input type="radio" name="primary_image_id" value="{{ $img->id }}"
+                                        {{ $img->is_primary ? 'checked' : '' }}>
+                                    Foto Utama
+                                </label>
+
+                                <label class="flex items-center justify-center gap-1.5 text-xs font-semibold text-red-500 cursor-pointer">
+                                    <input type="checkbox" name="delete_images[]" value="{{ $img->id }}">
+                                    Hapus foto ini
+                                </label>
                             </div>
-                            <input type="file" name="images[]" id="image-input" accept="image/*" class="hidden">
-                        </label>
+                        @endforeach
                     </div>
-                </div>
+                @endif
+
+                <label class="flex flex-col w-full h-32 border-2 border-dashed border-gray-300 rounded-xl hover:bg-blue-50 hover:border-blue-400 transition cursor-pointer justify-center items-center group">
+                    <div class="flex flex-col items-center justify-center pt-4 pb-5">
+                        <i data-lucide="image-plus" class="w-7 h-7 text-gray-400 mb-1.5 group-hover:text-blue-500 transition"></i>
+                        <p class="text-sm text-gray-500 font-medium group-hover:text-blue-600">Klik untuk tambah foto baru</p>
+                        <p id="images-counter" class="text-xs text-gray-400 mt-1">0 foto baru dipilih.</p>
+                    </div>
+                    <input type="file" name="images[]" id="images-input" multiple accept="image/*" class="hidden">
+                </label>
+                <p id="images-warning" class="mt-1.5 text-xs text-red-500 hidden">
+                    Total foto (lama yang tersisa + baru) akan melebihi 5 — kelebihannya akan ditolak server.
+                </p>
             </div>
 
             @php
@@ -157,10 +231,10 @@
                 </div>
 
                 <div id="toggle-wrapper" class="relative w-12 h-6 rounded-full cursor-pointer transition-colors duration-300 {{ $isActive ? 'bg-blue-500' : 'bg-gray-300' }}">
-                    <div id="toggle-circle" 
+                    <div id="toggle-circle"
                          class="absolute w-5 h-5 bg-white rounded-full top-0.5 left-0.5 transition-transform duration-300 shadow-sm"
                          style="transform: {{ $isActive ? 'translateX(24px)' : 'translateX(0)' }}"></div>
-                    
+
                     <input type="hidden" name="is_active" value="0">
                     <input type="checkbox" name="is_active" id="is_active" value="1" class="hidden" {{ $isActive ? 'checked' : '' }}>
                 </div>
@@ -179,28 +253,13 @@
             </div>
 
         </form>
-        
-    </div> 
+
+    </div>
     <script>
         // Init Icons
         lucide.createIcons();
 
-        // 1. LOGIC IMAGE PREVIEW
-        const imageInput = document.getElementById('image-input');
-        const imagePreview = document.getElementById('image-preview');
-
-        imageInput.addEventListener('change', function() {
-            const file = this.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    imagePreview.src = e.target.result;
-                }
-                reader.readAsDataURL(file);
-            }
-        });
-
-        // 2. LOGIC TOGGLE STATUS
+        // 1. LOGIC TOGGLE STATUS
         const toggleWrapper = document.getElementById('toggle-wrapper');
         const toggleCircle  = document.getElementById('toggle-circle');
         const checkbox      = document.getElementById('is_active');
@@ -226,8 +285,34 @@
             checkbox.checked = !checkbox.checked;
             updateToggleUI();
         });
-        
+
         updateToggleUI();
+
+        // ---------------------------------------------------------------
+        // VALIDASI JUMLAH FOTO (klien): total foto lama yang TIDAK dicentang
+        // hapus + foto baru yang dipilih, dibandingkan ke batas 5. Backend
+        // (ProductController@update) tetap validasi FINAL.
+        // ---------------------------------------------------------------
+        const imagesInput = document.getElementById('images-input');
+        const imagesCounter = document.getElementById('images-counter');
+        const imagesWarning = document.getElementById('images-warning');
+        const existingTotal = {{ $product->images->count() }};
+
+        function countCheckedDeletes() {
+            return document.querySelectorAll('input[name="delete_images[]"]:checked').length;
+        }
+
+        function refreshImageCount() {
+            const newCount = imagesInput.files.length;
+            imagesCounter.textContent = newCount + ' foto baru dipilih.';
+            const remainingOld = existingTotal - countCheckedDeletes();
+            imagesWarning.classList.toggle('hidden', (remainingOld + newCount) <= 5);
+        }
+
+        imagesInput.addEventListener('change', refreshImageCount);
+        document.querySelectorAll('input[name="delete_images[]"]').forEach((el) => {
+            el.addEventListener('change', refreshImageCount);
+        });
     </script>
 
 </body>

@@ -49,46 +49,104 @@ class CartController extends Controller
     public function add(Request $request) {
         $data = $request->validate([
             'product_id' => 'required|exists:products,id',
-            'qty'        => 'nullable|integer',
+            // variant_id dikirim oleh Halaman Detail Produk HANYA untuk produk
+            // unit_type='kg' setelah user mengklik salah satu tombol varian.
+            'variant_id' => 'nullable|exists:product_variants,id',
+            'qty'        => 'nullable|integer|min:1',
         ]);
 
         $product = Product::with('primaryImage')->findOrFail($data['product_id']);
-        
-        // Tetap gunakan min_pembelian dari database
-        $minBeli = $product->min_pembelian ?? 1; 
-        $qty = $data['qty'] ?? $minBeli;
+        $isAjax  = $request->ajax() || $request->expectsJson();
 
-        if ($qty < $minBeli) {
-            $msg = "Minimal pembelian adalah {$minBeli} {$product->satuan}.";
-            // AJAX (mini cart drawer): balas JSON gagal tanpa redirect.
-            if ($request->ajax() || $request->expectsJson()) {
-                return response()->json(['success' => false, 'message' => $msg], 422);
+        // ------------------------------------------------------------------
+        // LOGIKA IF/ELSE PCS vs KG (sisi keranjang):
+        // - variant_id ADA  -> pakai harga & stok VARIAN (cabang Kg).
+        // - variant_id TIDAK ADA -> pakai harga & stok UTAMA produk (cabang Pcs,
+        //   sama persis seperti sebelum fitur varian ditambahkan).
+        // ------------------------------------------------------------------
+        $variant = null;
+        if (!empty($data['variant_id'])) {
+            // find() lewat relasi product->variants() memastikan varian ini
+            // benar-benar milik produk yang dimaksud (tidak bisa dipalsukan
+            // dari produk lain lewat ID acak).
+            $variant = $product->variants()->find($data['variant_id']);
+            if (!$variant) {
+                $msg = 'Varian tidak ditemukan untuk produk ini.';
+                if ($isAjax) return response()->json(['success' => false, 'message' => $msg], 422);
+                return back()->with('error', $msg);
             }
-            return back()->with('error', $msg);
         }
 
-        $cart = $this->getCart();
+        if ($variant) {
+            // ---------------- CABANG KG (varian terpilih) ----------------
+            $minBeli = 1; // qty berarti "berapa unit varian ini", bukan berat
+            $qty = $data['qty'] ?? $minBeli;
 
-        if (isset($cart[$product->id])) {
-            $cart[$product->id]['qty'] += $qty;
+            if ($qty > $variant->stock) {
+                $msg = "Stok untuk varian \"{$variant->label}\" tidak mencukupi (tersisa {$variant->stock}).";
+                if ($isAjax) return response()->json(['success' => false, 'message' => $msg], 422);
+                return back()->with('error', $msg);
+            }
+
+            // Key KOMPOSIT "productId_variantId" -> varian berbeda dari produk
+            // yang sama tersimpan sebagai baris keranjang yang TERPISAH.
+            $cartKey = $product->id . '_' . $variant->id;
+            $cart = $this->getCart();
+
+            if (isset($cart[$cartKey])) {
+                $cart[$cartKey]['qty'] += $qty;
+            } else {
+                $cart[$cartKey] = [
+                    'product_id'    => $product->id,
+                    'variant_id'    => $variant->id,
+                    // Nama gabungan produk+varian dipakai APA ADANYA oleh semua
+                    // halaman lama (cart/checkout/order) yang hanya baca key
+                    // 'name' — tidak perlu ubah template mana pun untuk itu.
+                    'name'          => "{$product->name} ({$variant->label})",
+                    'price'         => $variant->price,
+                    'qty'           => $qty,
+                    'min_pembelian' => $minBeli,
+                    'satuan'        => 'pcs', // qty dihitung per-unit varian
+                    'image'         => $product->primaryImage?->path,
+                ];
+            }
+            $cart[$cartKey]['subtotal'] = $cart[$cartKey]['price'] * $cart[$cartKey]['qty'];
+            $this->saveCart($cart);
         } else {
-            $cart[$product->id] = [
-                'product_id'    => $product->id,
-                'name'          => $product->name,
-                'price'         => $product->price_per_kg,
-                'qty'           => $qty,
-                'min_pembelian' => $minBeli, 
-                'satuan'        => $product->satuan ?? 'Kg',
-                'image'         => $product->primaryImage?->path,
-            ];
+            // ---------------- CABANG PCS (tidak berubah) ----------------
+            $minBeli = $product->min_pembelian ?? 1;
+            $qty = $data['qty'] ?? $minBeli;
+
+            if ($qty < $minBeli) {
+                $msg = "Minimal pembelian adalah {$minBeli} {$product->satuan}.";
+                if ($isAjax) return response()->json(['success' => false, 'message' => $msg], 422);
+                return back()->with('error', $msg);
+            }
+
+            $cart = $this->getCart();
+
+            if (isset($cart[$product->id])) {
+                $cart[$product->id]['qty'] += $qty;
+            } else {
+                $cart[$product->id] = [
+                    'product_id'    => $product->id,
+                    'name'          => $product->name,
+                    'price'         => $product->price_per_kg,
+                    'qty'           => $qty,
+                    'min_pembelian' => $minBeli,
+                    'satuan'        => $product->satuan ?? 'Kg',
+                    'image'         => $product->primaryImage?->path,
+                ];
+            }
+
+            $cart[$product->id]['subtotal'] = $cart[$product->id]['price'] * $cart[$product->id]['qty'];
+            $this->saveCart($cart);
         }
 
-        $cart[$product->id]['subtotal'] = $cart[$product->id]['price'] * $cart[$product->id]['qty'];
-        $this->saveCart($cart);
-
-        // AJAX (tombol quick-add di Mini Cart Drawer / halaman lain): balas JSON berisi
-        // snapshot keranjang terbaru agar drawer & badge ter-update TANPA reload halaman.
-        if ($request->ajax() || $request->expectsJson()) {
+        // AJAX (tombol quick-add di Mini Cart Drawer / Halaman Detail Produk):
+        // balas JSON berisi snapshot keranjang terbaru agar drawer & badge
+        // ter-update TANPA reload halaman.
+        if ($isAjax) {
             return response()->json(array_merge(
                 ['success' => true, 'message' => 'Produk ditambahkan ke keranjang.'],
                 $this->cartSnapshot()
@@ -108,9 +166,14 @@ class CartController extends Controller
         $isAjax = $request->ajax() || $request->expectsJson();
 
         if (isset($cart[$id])) {
+            // Baris VARIAN (unit_type='kg') selalu terkunci minimal 1 unit,
+            // TIDAK memakai min_pembelian milik produk induk — kolom itu
+            // adalah aturan minimal untuk mode Pcs, bukan untuk jumlah unit
+            // varian potongan yang dipilih di Halaman Detail Produk.
+            $isVariantLine = isset($cart[$id]['variant_id']);
             $product = Product::find($cart[$id]['product_id']);
             // Cast (int) agar perbandingan minimal selalu numerik, bukan string.
-            $minOrder   = (int) ($product ? ($product->min_pembelian ?? 1) : 1);
+            $minOrder   = $isVariantLine ? 1 : (int) ($product ? ($product->min_pembelian ?? 1) : 1);
             $currentQty = (int) $cart[$id]['qty'];
 
             if ($request->action == 'increase') {

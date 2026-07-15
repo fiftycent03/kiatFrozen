@@ -93,7 +93,7 @@
     <img src="{{ asset('storage/Logo_Kiat.png') }}" alt="Logo Karya Inti Alam Tunggal" 
       class="h-11 w-11 rounded-full object-cover shadow-md border border-white/20" />
       <span class="flex flex-col leading-none">
-        <span class="font-display text-lg font-semibold tracking-tight text-pearl">KIAT</span>
+        <span class="font-display text-lg font-semibold tracking-tight text-pearl">KIAT SURABAYA</span>
         <span class="mt-1 font-mono text-[9px] uppercase tracking-[0.18em] text-pearl/50">Karya Inti Alam Tunggal</span>
       </span>
     </a>
@@ -114,10 +114,12 @@
     </nav>
 
     <div class="flex items-center gap-1.5 sm:gap-2">
-      <button class="hidden items-center gap-2 rounded-full px-3 py-2 text-pearl/80 transition hover:bg-white/5 hover:text-gold sm:flex" title="Pesanan Saya">
+      <a href="{{ route('user.riwayat') }}"
+        class="hidden items-center gap-2 rounded-full px-3 py-2 text-pearl/80 transition hover:bg-white/5 hover:text-gold sm:flex"
+        title="Pesanan Saya">
         <i data-lucide="package" class="h-5 w-5"></i>
         <span class="text-xs font-medium">Pesanan</span>
-      </button>
+      </a>
       <a href="{{ route('login') }}"
         class="grid h-10 w-10 place-items-center rounded-full text-pearl/80 transition hover:bg-white/5 hover:text-gold"
         title="Akun Saya">
@@ -209,7 +211,7 @@
               <span id="tagPrice" class="whitespace-nowrap font-mono text-sm font-bold text-ink">Premium<span class="font-normal text-ink/50"></span></span>
             </div>
             <p id="tagName" class="mt-1.5 font-display text-base font-semibold leading-tight text-ink">Seafood KIAT Frozen</p>
-            <p id="tagOrigin" class="text-[11px] text-ink/50">Surabaya, Jawa Timur</p>
+            <p id="tagOrigin" class="text-[11px] text-ink/50">Lebak Permai Utara 3/19A</p>
           </div>
         </div>
 
@@ -296,7 +298,7 @@
         <div class="flex items-center gap-3">
           <img src="{{ asset('storage/Logo_Kiat.png') }}" alt="Logo Karya Inti Alam Tunggal"
             class="h-11 w-11 rounded-full object-cover shadow-md border border-white/20" />
-          <span class="font-display text-lg font-semibold text-pearl">KIAT</span>
+          <span class="font-display text-lg font-semibold text-pearl">KIAT SURABAYA</span>
         </div>
         <p class="mt-4 max-w-xs text-sm leading-relaxed text-pearl/50">Seafood premium, dari laut Nusantara ke meja Anda. Segar, higienis, dan bersertifikat Halal.</p>
         <div class="mt-5 flex gap-2.5">
@@ -324,9 +326,9 @@
       <div>
         <p class="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-pearl/40">Hubungi Kami</p>
         <ul class="mt-4 space-y-3 text-sm text-pearl/70">
-          <li class="flex items-center gap-2"><i data-lucide="map-pin" class="h-4 w-4 text-gold"></i>Surabaya, Jawa Timur</li>
-          <li class="flex items-center gap-2"><i data-lucide="phone" class="h-4 w-4 text-gold"></i>+62 812-0000-0000</li>
-          <li class="flex items-center gap-2"><i data-lucide="mail" class="h-4 w-4 text-gold"></i>halo@kiat-seafood.id</li>
+          <li class="flex items-center gap-2"><i data-lucide="map-pin" class="h-4 w-4 text-gold"></i>Lebak Permai Utara 3/19A</li>
+          <li class="flex items-center gap-2"><i data-lucide="phone" class="h-4 w-4 text-gold"></i>+62 813 3268 3338</li>
+          <li class="flex items-center gap-2"><i data-lucide="mail" class="h-4 w-4 text-gold"></i>kiatsurabaya@gmail.com</li>
         </ul>
       </div>
     </div>

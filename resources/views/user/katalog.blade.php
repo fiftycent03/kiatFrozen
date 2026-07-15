@@ -66,8 +66,8 @@
                         stock: {{ $product->stock }}
                      }">
 
-                    {{-- IMAGE SECTION --}}
-                    <div class="relative h-48 bg-pearl">
+                    {{-- IMAGE SECTION — dijadikan link ke Halaman Detail Produk --}}
+                    <a href="{{ route('produk.show', $product->slug) }}" class="relative block h-48 bg-pearl">
                         @if($product->primaryImage)
                             <img src="{{ asset('storage/'.$product->primaryImage->path) }}" class="w-full h-full object-cover">
                         @else
@@ -79,78 +79,102 @@
                         </div>
 
                         <div class="absolute bottom-3 left-3">
-                            @if($product->stock > 0)
+                            @if($product->isKg())
+                                {{-- Produk Kg: tampilkan jumlah varian, bukan stok utama (stok ada per-varian) --}}
+                                <span class="bg-lagoon text-white text-[10px] px-2 py-1 rounded-full font-bold shadow-lg">{{ $product->variants->count() }} Varian</span>
+                            @elseif($product->stock > 0)
                                 <span class="bg-lagoon text-white text-[10px] px-2 py-1 rounded-full font-bold shadow-lg">Stok: {{ $product->stock }}</span>
                             @else
                                 <span class="bg-coral text-white text-[10px] px-2 py-1 rounded-full font-bold shadow-lg">HABIS</span>
                             @endif
                         </div>
-                    </div>
+                    </a>
 
                     {{-- DETAIL SECTION --}}
-                    <div class="p-5 flex flex-col flex-1 {{ $product->stock <= 0 ? 'opacity-60' : '' }}">
+                    <div class="p-5 flex flex-col flex-1 {{ $product->isPcs() && $product->stock <= 0 ? 'opacity-60' : '' }}">
                         <div class="mb-4 flex-1">
-                            <h3 class="font-display font-semibold text-ink text-lg leading-tight">{{ $product->name }}</h3>
+                            <a href="{{ route('produk.show', $product->slug) }}" class="hover:text-lagoon transition">
+                                <h3 class="font-display font-semibold text-ink text-lg leading-tight">{{ $product->name }}</h3>
+                            </a>
 
-                            {{-- Info Minimal Pembelian (aksen coral, dipakai terbatas) --}}
-                            <div class="inline-flex items-center gap-1.5 text-coral bg-coral/10 px-2 py-1 rounded-md text-[10px] font-bold uppercase mt-2 border border-coral/20">
-                                📌 Min. Beli: {{ $product->min_pembelian }} {{ $product->satuan }}
-                            </div>
+                            @if($product->isPcs())
+                                {{-- Info Minimal Pembelian (aksen coral, dipakai terbatas) --}}
+                                <div class="inline-flex items-center gap-1.5 text-coral bg-coral/10 px-2 py-1 rounded-md text-[10px] font-bold uppercase mt-2 border border-coral/20">
+                                    📌 Min. Beli: {{ $product->min_pembelian }} {{ $product->satuan }}
+                                </div>
 
-                            <div class="text-ink font-black text-xl mt-2 font-mono">
-                                Rp {{ number_format($product->price_per_kg, 0, ',', '.') }}
-                            </div>
+                                <div class="text-ink font-black text-xl mt-2 font-mono">
+                                    Rp {{ number_format($product->price_per_kg, 0, ',', '.') }}
+                                </div>
+                            @else
+                                {{-- Produk Kg: harga bervariasi per potongan -> tampilkan "mulai dari" --}}
+                                <div class="text-ink font-black text-xl mt-2 font-mono">
+                                    Mulai Rp {{ number_format($product->variants->min('price') ?? $product->price_per_kg, 0, ',', '.') }}
+                                </div>
+                            @endif
                         </div>
 
-                        {{-- ACTION FORM --}}
-                        <form action="{{ route('cart.add') }}" method="POST">
-                            @csrf
-                            <input type="hidden" name="product_id" value="{{ $product->id }}">
+                        @if($product->isPcs())
+                            {{-- ACTION FORM (Pcs): tidak berubah — qty stepper + Add to Cart langsung --}}
+                            <form action="{{ route('cart.add') }}" method="POST">
+                                @csrf
+                                <input type="hidden" name="product_id" value="{{ $product->id }}">
 
-                            {{-- QUANTITY BUTTONS --}}
-                            <div class="flex items-center justify-between bg-pearl rounded-xl p-1.5 border border-ink/10 mb-4">
-                                {{-- Tombol Kurangi --}}
-                                <button type="button"
-                                        @click="if(qty > min) qty--"
-                                        class="w-10 h-10 flex items-center justify-center bg-white rounded-lg text-ink/60 shadow-sm transition active:scale-95"
-                                        :class="qty <= min ? 'opacity-30 cursor-not-allowed' : 'hover:bg-coral/10 hover:text-coral'"
-                                        :disabled="stock <= 0">
-                                    <span class="text-xl font-bold">-</span>
-                                </button>
-
-                                {{-- Angka Quantity (Input) --}}
-                                <input type="number"
-                                       name="qty"
-                                       x-model.number="qty"
-                                       class="w-14 text-center bg-transparent border-none focus:ring-0 font-black text-ink text-lg"
-                                       readonly>
-
-                                {{-- Tombol Tambah --}}
-                                <button type="button"
-                                        @click="if(qty < stock) qty++"
-                                        class="w-10 h-10 flex items-center justify-center bg-white rounded-lg text-ink/60 shadow-sm transition active:scale-95"
-                                        :class="qty >= stock ? 'opacity-30 cursor-not-allowed' : 'hover:bg-lagoon/10 hover:text-lagoon'"
-                                        :disabled="stock <= 0">
-                                    <span class="text-xl font-bold">+</span>
-                                </button>
-                            </div>
-
-                            <div class="flex flex-col gap-2">
-                                @if($product->stock > 0)
-                                    {{-- CTA utama emas (gold) --}}
-                                    <button type="submit" class="w-full bg-gold hover:brightness-110 text-abyss py-3 rounded-xl text-sm font-bold transition shadow-glow active:scale-95 flex items-center justify-center gap-2">
-                                        🛒 + Keranjang
+                                {{-- QUANTITY BUTTONS --}}
+                                <div class="flex items-center justify-between bg-pearl rounded-xl p-1.5 border border-ink/10 mb-4">
+                                    {{-- Tombol Kurangi --}}
+                                    <button type="button"
+                                            @click="if(qty > min) qty--"
+                                            class="w-10 h-10 flex items-center justify-center bg-white rounded-lg text-ink/60 shadow-sm transition active:scale-95"
+                                            :class="qty <= min ? 'opacity-30 cursor-not-allowed' : 'hover:bg-coral/10 hover:text-coral'"
+                                            :disabled="stock <= 0">
+                                        <span class="text-xl font-bold">-</span>
                                     </button>
-                                    <button type="submit" formaction="{{ route('cart.buyNow') }}" class="w-full bg-abyss hover:bg-marine text-pearl py-2 rounded-lg text-xs font-bold transition opacity-90 hover:opacity-100">
-                                        Beli Langsung
+
+                                    {{-- Angka Quantity (Input) --}}
+                                    <input type="number"
+                                           name="qty"
+                                           x-model.number="qty"
+                                           class="w-14 text-center bg-transparent border-none focus:ring-0 font-black text-ink text-lg"
+                                           readonly>
+
+                                    {{-- Tombol Tambah --}}
+                                    <button type="button"
+                                            @click="if(qty < stock) qty++"
+                                            class="w-10 h-10 flex items-center justify-center bg-white rounded-lg text-ink/60 shadow-sm transition active:scale-95"
+                                            :class="qty >= stock ? 'opacity-30 cursor-not-allowed' : 'hover:bg-lagoon/10 hover:text-lagoon'"
+                                            :disabled="stock <= 0">
+                                        <span class="text-xl font-bold">+</span>
                                     </button>
-                                @else
-                                    <button type="button" class="w-full bg-ink/10 text-ink/40 py-3 rounded-xl text-sm font-bold cursor-not-allowed" disabled>
-                                        Stok Habis
-                                    </button>
-                                @endif
-                            </div>
-                        </form>
+                                </div>
+
+                                <div class="flex flex-col gap-2">
+                                    @if($product->stock > 0)
+                                        {{-- CTA utama emas (gold) --}}
+                                        <button type="submit" class="w-full bg-gold hover:brightness-110 text-abyss py-3 rounded-xl text-sm font-bold transition shadow-glow active:scale-95 flex items-center justify-center gap-2">
+                                            🛒 + Keranjang
+                                        </button>
+                                        <button type="submit" formaction="{{ route('cart.buyNow') }}" class="w-full bg-abyss hover:bg-marine text-pearl py-2 rounded-lg text-xs font-bold transition opacity-90 hover:opacity-100">
+                                            Beli Langsung
+                                        </button>
+                                    @else
+                                        <button type="button" class="w-full bg-ink/10 text-ink/40 py-3 rounded-xl text-sm font-bold cursor-not-allowed" disabled>
+                                            Stok Habis
+                                        </button>
+                                    @endif
+                                </div>
+                            </form>
+                        @else
+                            {{-- ================================================================= --}}
+                            {{-- Produk Kg TIDAK punya tombol Add to Cart langsung di kartu katalog — --}}
+                            {{-- harga & stok berbeda per varian, jadi user WAJIB ke Halaman Detail   --}}
+                            {{-- Produk dulu untuk memilih potongan/gramasi sebelum bisa checkout.    --}}
+                            {{-- ================================================================= --}}
+                            <a href="{{ route('produk.show', $product->slug) }}"
+                               class="mt-auto w-full inline-flex items-center justify-center gap-2 bg-gold hover:brightness-110 text-abyss py-3 rounded-xl text-sm font-bold transition shadow-glow">
+                                ⚖️ Pilih Berat / Varian
+                            </a>
+                        @endif
                     </div>
                 </div>
                 @empty

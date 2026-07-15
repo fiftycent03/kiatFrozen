@@ -84,39 +84,60 @@
                 </div>
             </div>
 
-            {{-- 2. UPLOAD BUKTI PEMBAYARAN --}}
-            @if($order->payment_channel == 'transfer' && $order->payment_status != 'paid')
+            {{-- 2. UPLOAD BUKTI PEMBAYARAN (Transfer Bank Manual) --}}
+            {{-- LOGIKA STATUS: form upload hanya relevan selama pesanan BELUM lunas.
+                 - 'awaiting_verification': sudah upload, form disembunyikan (tunggu Admin).
+                 - 'pending'/'rejected': form ditampilkan (belum upload / bukti ditolak, upload ulang).
+                 - 'paid': seksi ini disembunyikan total (lihat @unless di bawah). --}}
+            @unless($order->payment_status === 'paid')
             <div class="bg-white/90 rounded-xl shadow-sm border-2 border-lagoon/20 p-6">
                 <h3 class="font-bold text-ink/80 mb-4 flex items-center gap-2">
                     📸 Bukti Pembayaran
                 </h3>
-                
+
+                @if($order->payment_status === 'rejected')
+                    <div class="mb-4 p-4 bg-coral/10 rounded-lg border border-coral/20">
+                        <p class="text-sm font-bold text-coral">⚠️ Bukti sebelumnya ditolak Admin.</p>
+                        <p class="text-xs text-coral/80 mt-1">Silakan unggah ulang foto bukti transfer yang benar di bawah ini.</p>
+                    </div>
+                @endif
+
                 @if($order->payment_proof)
                     <div class="mb-4 p-4 bg-green-50 rounded-lg border border-green-100 flex items-center gap-4">
                         <img src="{{ asset('storage/' . $order->payment_proof) }}" class="w-20 h-20 object-cover rounded-md border-2 border-white shadow-sm">
                         <div>
-                            <p class="text-sm font-bold text-green-700">Bukti Sudah Terkirim</p>
-                            <p class="text-xs text-green-600">Admin akan segera memverifikasi pesanan Anda.</p>
+                            <p class="text-sm font-bold text-green-700">
+                                {{ $order->payment_status === 'awaiting_verification' ? 'Bukti Sudah Terkirim' : 'Bukti Terakhir Diunggah' }}
+                            </p>
+                            <p class="text-xs text-green-600">
+                                {{ $order->payment_status === 'awaiting_verification' ? 'Admin akan segera memverifikasi pesanan Anda.' : 'Bukti ini ditolak — unggah foto baru untuk mengganti.' }}
+                            </p>
                         </div>
                     </div>
                 @endif
 
-                <form action="{{ route('order.uploadProof', $order->id) }}" method="POST" enctype="multipart/form-data" class="space-y-4">
-                    @csrf
-                    <div class="flex flex-col md:flex-row gap-4 items-end">
-                        <div class="flex-1 w-full">
-                            <label class="block text-xs font-bold text-ink/40 uppercase mb-2">Pilih Foto Bukti Transfer</label>
-                            <input type="file" name="payment_proof" accept="image/*" required
-                                class="block w-full text-sm text-ink/50 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-lagoon/10 file:text-lagoon hover:file:bg-lagoon/20 cursor:pointer border border-ink/10 rounded-xl p-2">
+                @if($order->payment_status === 'awaiting_verification')
+                    {{-- Form disembunyikan selama masih ditinjau, supaya user tidak
+                         upload ulang tanpa alasan sementara Admin sedang mengecek. --}}
+                    <p class="text-xs text-ink/50 italic">🕐 Menunggu verifikasi Admin. Form upload akan muncul kembali jika bukti ini ditolak.</p>
+                @else
+                    <form action="{{ route('order.uploadProof', $order->id) }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                        @csrf
+                        <div class="flex flex-col md:flex-row gap-4 items-end">
+                            <div class="flex-1 w-full">
+                                <label class="block text-xs font-bold text-ink/40 uppercase mb-2">Pilih Foto Bukti Transfer</label>
+                                <input type="file" name="payment_proof" accept="image/*" required
+                                    class="block w-full text-sm text-ink/50 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-lagoon/10 file:text-lagoon hover:file:bg-lagoon/20 cursor:pointer border border-ink/10 rounded-xl p-2">
+                            </div>
+                            {{-- CTA emas (gold) sesuai tema premium --}}
+                            <button type="submit" class="bg-gold hover:brightness-110 text-abyss px-6 py-2.5 rounded-xl font-bold transition shadow-glow whitespace-nowrap">
+                                Unggah Sekarang
+                            </button>
                         </div>
-                        {{-- CTA emas (gold) sesuai tema premium --}}
-                        <button type="submit" class="bg-gold hover:brightness-110 text-abyss px-6 py-2.5 rounded-xl font-bold transition shadow-glow whitespace-nowrap">
-                            Unggah Sekarang
-                        </button>
-                    </div>
-                </form>
+                    </form>
+                @endif
             </div>
-            @endif
+            @endunless
 
             {{-- 3. STATUS PENGIRIMAN & KONFIRMASI --}}
             <div class="bg-white/90 rounded-xl shadow-sm border border-ink/10 p-6">
@@ -249,7 +270,9 @@
             <div class="bg-white/90 rounded-xl shadow-sm border border-ink/10 p-6 text-center">
                 <h3 class="font-bold text-ink/80 mb-4">Status Pembayaran</h3>
 
-                {{-- Badge status: hijau = lunas, kuning = COD, oranye = pending Midtrans, merah = belum bayar --}}
+                {{-- Badge status: hijau = lunas, kuning = COD, gold = menunggu verifikasi
+                     Admin, merah = belum bayar / bukti ditolak. Midtrans (biru) sudah
+                     dihapus total — pembayaran kini murni Transfer Bank Manual. --}}
                 @if($order->payment_status == 'paid')
                     <div class="bg-green-100 text-green-700 px-4 py-3 rounded-xl font-bold mb-2 flex items-center justify-center gap-2 border border-green-200">
                         ✅ SUDAH DIBAYAR / LUNAS
@@ -263,27 +286,16 @@
                     <div class="bg-yellow-50 text-yellow-700 px-4 py-3 rounded-xl font-bold border border-yellow-200 text-sm uppercase">
                         📦 BAYAR DI TEMPAT (COD)
                     </div>
-                @elseif($order->payment_channel == 'midtrans')
-                    {{-- Midtrans belum dibayar: tombol langsung membuka ulang popup Snap DI
-                         HALAMAN INI JUGA (tidak pindah halaman), memakai snap_token yang
-                         SUDAH TERSIMPAN di database sejak checkout — bukan token baru. --}}
-                    <div class="bg-orange-50 text-orange-700 px-4 py-3 rounded-xl font-bold border border-orange-200 text-sm uppercase mb-3">
-                        🕐 MENUNGGU PEMBAYARAN
+                @elseif($order->payment_status == 'awaiting_verification')
+                    {{-- Bukti transfer sudah di-upload user, tinggal menunggu Admin klik
+                         "ACC Pembayaran" di panel Admin (lihat Admin\OrderController@approvePayment). --}}
+                    <div class="bg-gold/10 text-ink px-4 py-3 rounded-xl font-bold border border-gold/30 text-sm uppercase">
+                        🕐 MENUNGGU VERIFIKASI ADMIN
                     </div>
-
-                    @if($order->snap_token)
-                        {{-- Tombol asli <button>, BUKAN <a href="...">, agar tidak pindah halaman
-                             melainkan langsung memanggil window.snap.pay('{{ $order->snap_token }}')
-                             dengan Snap Token yang tersimpan di kolom orders.snap_token. --}}
-                        {{-- CTA lanjut bayar memakai aksen emas (gold) --}}
-                        <button type="button" id="btn-lanjut-bayar"
-                           class="block w-full bg-gold hover:brightness-110 text-abyss py-3 rounded-xl font-bold text-sm transition shadow-glow">
-                            💳 Lanjutkan Pembayaran
-                        </button>
-                        <p class="text-xs text-ink/40 mt-2">Klik untuk membuka kembali popup Midtrans</p>
-                    @else
-                        <p class="text-xs text-red-400 mt-2">Gagal membuat ulang sesi pembayaran. Muat ulang halaman ini.</p>
-                    @endif
+                @elseif($order->payment_status == 'rejected')
+                    <div class="bg-coral/10 text-coral px-4 py-3 rounded-xl font-bold border border-coral/25 text-sm uppercase">
+                        ⚠️ BUKTI DITOLAK — UPLOAD ULANG
+                    </div>
                 @else
                     <div class="bg-red-50 text-red-700 px-4 py-3 rounded-xl font-bold border border-red-200 text-sm uppercase">
                         ⚠️ MENUNGGU PEMBAYARAN
@@ -293,9 +305,8 @@
                 <div class="mt-4 p-3 bg-pearl rounded-lg text-left">
                     <span class="text-[10px] font-bold text-ink/40 uppercase">Metode:</span>
                     <p class="text-sm font-bold text-ink/80">
-                        @if($order->payment_channel == 'midtrans') 💳 Midtrans (Online)
-                        @elseif($order->payment_channel == 'cod') 📦 Bayar di Tempat
-                        @else {{ strtoupper($order->payment_channel) }}
+                        @if($order->payment_channel == 'cod') 📦 Bayar di Tempat
+                        @else 🏦 Transfer Bank Manual
                         @endif
                     </p>
                 </div>
@@ -304,56 +315,4 @@
         </div>
     </div>
 </div>
-
-@if($order->snap_token)
-{{-- Snap.js Midtrans WAJIB dimuat di halaman ini juga (Order Detail) supaya tombol
-     "Lanjutkan Pembayaran" bisa langsung membuka popup tanpa perlu redirect dulu
-     ke halaman lain. --}}
-<script src="{{ config('services.midtrans.is_production') ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js' }}"
-        data-client-key="{{ config('services.midtrans.client_key') }}"></script>
-<script>
-    document.getElementById('btn-lanjut-bayar').addEventListener('click', function () {
-        // Panggil ULANG snap_token yang sudah tersimpan di database (bukan generate
-        // baru) — supaya popup ini adalah SESI PEMBAYARAN YANG SAMA dengan yang
-        // dibuat saat checkout pertama kali.
-        window.snap.pay('{{ $order->snap_token }}', {
-            onSuccess: function () {
-                // Bayar berhasil — konfirmasi ke backend (status 'paid') supaya stok
-                // dikurangi (jika belum pernah dikurangi sebelumnya) & status diperbarui,
-                // lalu muat ulang halaman ini agar badge status ikut berubah.
-                fetch("{{ route('payment.confirm') }}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': "{{ csrf_token() }}"
-                    },
-                    body: JSON.stringify({ order_id: {{ $order->id }}, status: 'paid' })
-                }).finally(function () {
-                    window.location.reload();
-                });
-            },
-            onPending: function () {
-                // Sama seperti onSuccess, tapi status tetap 'pending' (mis. menunggu transfer VA).
-                fetch("{{ route('payment.confirm') }}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': "{{ csrf_token() }}"
-                    },
-                    body: JSON.stringify({ order_id: {{ $order->id }}, status: 'pending' })
-                }).finally(function () {
-                    window.location.reload();
-                });
-            },
-            onError: function () {
-                alert('Pembayaran gagal. Silakan coba lagi.');
-            },
-            // CATATAN: tidak ada onClose di sini secara sengaja. Order ini SUDAH ADA
-            // sebelum popup dibuka (bukan baru dibuat seperti di alur checkout awal),
-            // jadi menutup popup di sini hanya berarti "coba lagi nanti" — TIDAK boleh
-            // menghapus order seperti pada onClose di cart.blade.php.
-        });
-    });
-</script>
-@endif
 @endsection

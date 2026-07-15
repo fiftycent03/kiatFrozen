@@ -19,11 +19,10 @@ class Order extends Model
         'delivery_proof', 'delivered_at',
         // Kurir yang ditugaskan admin.
         'courier_id',
-        // Penanda stok sudah dikurangi untuk order ini (diisi sekali saat onSuccess/onPending).
+        // Penanda stok sudah dikurangi untuk order ini — kini diisi sekali saat
+        // Admin klik "ACC Pembayaran" (lihat Admin\OrderController@approvePayment),
+        // menggantikan callback Midtrans yang sudah dihapus.
         'stock_reserved_at',
-        // Snap Token Midtrans — disimpan agar tombol "Lanjutkan Pembayaran" bisa
-        // membuka ulang SESI PEMBAYARAN YANG SAMA, bukan generate token baru tiap saat.
-        'snap_token',
     ];
 
     // Cast kolom tanggal kustom ke objek Carbon agar ->format() & ->diffForHumans() bisa dipanggil.

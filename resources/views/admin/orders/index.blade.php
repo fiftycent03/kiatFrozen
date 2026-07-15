@@ -48,7 +48,8 @@
                                 @if(strtolower($order->payment_channel) == 'cod')
                                     <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-100 text-yellow-800 border border-yellow-200 uppercase tracking-wider">📦 COD</span>
                                 @else
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wider">💳 Midtrans</span>
+                                    {{-- Midtrans dihapus total — satu-satunya metode online sekarang Transfer Bank Manual. --}}
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200 uppercase tracking-wider">🏦 Transfer Bank</span>
                                 @endif
                             </div>
                         </td>
@@ -70,9 +71,23 @@
                             @endif
                         </td>
 
-                        {{-- 3. TAGIHAN & BUKTI (termasuk download bukti kirim) --}}
+                        {{-- 3. TAGIHAN & BUKTI (termasuk verifikasi Transfer Bank Manual) --}}
                         <td class="p-4">
                             <div class="font-bold text-lg text-gray-900 tracking-tighter">Rp {{ number_format($order->total, 0, ',', '.') }}</div>
+
+                            {{-- Badge status pembayaran — sebelumnya tidak ditampilkan sama
+                                 sekali di tabel ini, padahal inilah yang paling perlu Admin
+                                 lihat sekarang untuk memutuskan ACC/Tolak. --}}
+                            @if($order->payment_status == 'paid')
+                                <span class="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 border border-green-200 uppercase">✅ Lunas</span>
+                            @elseif($order->payment_status == 'awaiting_verification')
+                                <span class="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 uppercase animate-pulse">🕐 Perlu Verifikasi</span>
+                            @elseif($order->payment_status == 'rejected')
+                                <span class="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 border border-red-200 uppercase">⚠️ Ditolak</span>
+                            @else
+                                <span class="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200 uppercase">Belum Bayar</span>
+                            @endif
+
                             @if($order->payment_proof)
                                 <button @click="openModal('{{ asset('storage/' . $order->payment_proof) }}')"
                                         class="mt-1 flex items-center space-x-1 text-[11px] text-blue-600 hover:text-blue-800 font-semibold underline decoration-blue-200">
@@ -80,6 +95,31 @@
                                     <span>Cek Bukti Bayar</span>
                                 </button>
                             @endif
+
+                            {{-- ================================================================= --}}
+                            {{-- TOMBOL ACC/TOLAK: hanya muncul saat payment_status='awaiting_verification' --}}
+                            {{-- (ada bukti baru yang perlu ditinjau). ACC -> approvePayment() (set 'paid' --}}
+                            {{-- + kurangi stok). Tolak -> rejectPayment() (set 'rejected', stok tidak disentuh). --}}
+                            {{-- ================================================================= --}}
+                            @if($order->payment_status == 'awaiting_verification')
+                                <div class="mt-2 flex gap-1.5">
+                                    <form action="{{ route('admin.orders.approve-payment', $order->id) }}" method="POST"
+                                          onsubmit="return confirm('ACC pembayaran order {{ $order->code }}? Stok akan langsung dikurangi.')">
+                                        @csrf
+                                        <button type="submit" class="flex items-center gap-1 px-2.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-[10px] font-bold uppercase transition">
+                                            <i data-lucide="check" class="w-3 h-3"></i> ACC
+                                        </button>
+                                    </form>
+                                    <form action="{{ route('admin.orders.reject-payment', $order->id) }}" method="POST"
+                                          onsubmit="return confirm('Tolak bukti transfer order {{ $order->code }}? User perlu upload ulang.')">
+                                        @csrf
+                                        <button type="submit" class="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-[10px] font-bold uppercase transition">
+                                            <i data-lucide="x" class="w-3 h-3"></i> Tolak
+                                        </button>
+                                    </form>
+                                </div>
+                            @endif
+
                             {{-- Tombol download bukti pengiriman dari kurir --}}
                             @if($order->delivery_proof)
                                 <a href="{{ route('admin.orders.download-proof', $order->id) }}"

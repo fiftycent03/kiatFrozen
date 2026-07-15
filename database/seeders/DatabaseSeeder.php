@@ -20,8 +20,6 @@ class DatabaseSeeder extends Seeder
         // Pastikan hanya ada kode ini, tidak ada query database di sini
         $this->call([
             AdminSeeder::class,
-            CategorySeeder::class,
-            ShippingRateSeeder::class,
         ]);
     }
 }

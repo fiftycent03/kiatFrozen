@@ -32,7 +32,8 @@
         <div class="flex items-center justify-between mb-8">
             <h1 class="text-2xl font-bold text-gray-800 flex items-center">
                 <!-- Logo resmi perusahaan (menggantikan ikon kepingan salju + teks "KIAT Dashboard") -->
-                <img src="{{ asset('storage/Logo_Kiat.png') }}" alt="Logo KIAT" class="h-10 w-auto mr-2">
+                <img src="{{ asset('storage/Logo_Kiat.png') }}" alt="Logo Karya Inti Alam Tunggal"
+                    class="h-11 w-11 rounded-full object-cover shadow-md border border-white/20" />
                 <span class="font-bold text-xl text-blue-800 tracking-tight">Karya Inti Alam Tunggal</span>
             </h1>
 

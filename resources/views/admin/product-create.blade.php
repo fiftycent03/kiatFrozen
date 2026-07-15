@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tambah Produk - KIAT FROZEN</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    {{-- Alpine.js dipakai untuk reaktivitas form: toggle Pcs/Kg & repeater baris Varian --}}
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
         .toggle-checkbox:checked+.toggle-label .toggle-circle {
             transform: translateX(1.5rem);
@@ -14,6 +16,8 @@
         .toggle-checkbox:checked+.toggle-label {
             background-color: #3b82f6;
         }
+
+        [x-cloak] { display: none !important; }
     </style>
 </head>
 
@@ -21,7 +25,8 @@
 
     <header class="max-w-4xl mx-auto mb-6 flex items-center">
         <!-- Logo resmi perusahaan (menggantikan teks "KIAT Dashboard") -->
-        <img src="{{ asset('storage/Logo_Kiat.png') }}" alt="Logo KIAT" class="h-12 w-auto mr-2">
+        <img src="{{ asset('storage/Logo_Kiat.png') }}" alt="Logo Karya Inti Alam Tunggal"
+            class="h-11 w-11 rounded-full object-cover shadow-md border border-white/20" />
         <span class="font-bold text-xl text-blue-800 tracking-tight">Karya Inti Alam Tunggal</span>
     </header>
 
@@ -41,7 +46,15 @@
         </div>
         @endif
 
-        <form action="{{ route('admin.products.store') }}" method="POST" enctype="multipart/form-data">
+        {{-- x-data root: `satuan` = saklar Pcs/Kg (juga jadi value dropdown "Tipe Penjualan"),
+             `variants` = array baris Varian Potongan/Gramasi yang bisa ditambah/dihapus. --}}
+        <form action="{{ route('admin.products.store') }}" method="POST" enctype="multipart/form-data"
+              x-data="{
+                  satuan: '{{ old('satuan', 'pcs') }}',
+                  variants: {{ old('variants') ? Js::from(old('variants')) : '[{label:\'\',price:\'\',stock:\'\'}]' }},
+                  addVariant() { this.variants.push({ label: '', price: '', stock: '' }); },
+                  removeVariant(i) { if (this.variants.length > 1) this.variants.splice(i, 1); },
+              }">
             @csrf
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -69,8 +82,8 @@
 
                     <option value="">-- Pilih Kategori --</option>
 
-                    @foreach(\App\Models\Category::where('is_active',1)->get() as $cat)
-                    <option value="{{ $cat->id }}">
+                    @foreach(\App\Models\Category::where('is_active', 1)->get() as $cat)
+                    <option value="{{ $cat->id }}" {{ old('category_id') == $cat->id ? 'selected' : '' }}>
                         {{ $cat->name }}
                     </option>
                     @endforeach
@@ -78,37 +91,86 @@
                 </select>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                    <label class="block text-sm font-semibold mb-2">Harga per Kg</label>
-                    <input type="number" name="price_per_kg" required min="0" value="{{ old('price_per_kg') }}"
-                        class="w-full border rounded-xl px-4 py-3">
+            {{-- ============================================================= --}}
+            {{-- TIPE PENJUALAN / SATUAN — SATU dropdown, DUA fungsi:           --}}
+            {{-- (1) mengisi kolom lama `satuan` (teks tampilan di halaman lain) --}}
+            {{-- (2) via x-model="satuan" mengendalikan logika If/Else Pcs/Kg   --}}
+            {{-- di bawah (harga tunggal vs form varian dinamis).               --}}
+            {{-- ============================================================= --}}
+            <div class="mb-6">
+                <label class="block text-sm font-semibold mb-2">Tipe Penjualan (Satuan)</label>
+                <select name="satuan" x-model="satuan" required class="w-full border rounded-xl px-4 py-3">
+                    <option value="pcs">Pcs — harga & stok tunggal</option>
+                    <option value="kg">Kg — wajib isi varian potongan/gramasi</option>
+                </select>
+            </div>
+
+            {{-- ============================================================= --}}
+            {{-- CABANG "PCS": harga & stok UTAMA. Input di-nonaktifkan          --}}
+            {{-- (:disabled) saat satuan=kg agar TIDAK ikut terkirim ke server —  --}}
+            {{-- x-show hanya menyembunyikan tampilan, browser tetap mengirim    --}}
+            {{-- field yang tidak disabled walau disembunyikan CSS.              --}}
+            {{-- ============================================================= --}}
+            <div x-show="satuan === 'pcs'" x-cloak>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Harga per Kg</label>
+                        <input type="number" name="price_per_kg" :disabled="satuan === 'kg'" min="0"
+                            value="{{ old('price_per_kg') }}"
+                            class="w-full border rounded-xl px-4 py-3">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold mb-2 text-blue-600">Stok Awal</label>
+                        <input type="number" name="stock" :disabled="satuan === 'kg'" min="0"
+                            value="{{ old('stock') ?? 0 }}"
+                            class="w-full border border-blue-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500">
+                    </div>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-semibold mb-2 text-blue-600">Stok Awal</label>
-                    <input type="number" name="stock" required min="0" value="{{ old('stock') ?? 0 }}"
-                        class="w-full border border-blue-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500">
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold mb-2">Minimal Pembelian</label>
+                    <input type="number" name="min_pembelian" :disabled="satuan === 'kg'" min="1"
+                        value="{{ old('min_pembelian') ?? 1 }}"
+                        class="w-full border rounded-xl px-4 py-3">
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {{-- ============================================================= --}}
+            {{-- CABANG "KG": form dinamis Varian Potongan/Gramasi (Alpine       --}}
+            {{-- repeater). Tiap baris = satu potongan dengan harga & stok       --}}
+            {{-- sendiri, mis. "500 gram" Rp25.000 / stok 10.                   --}}
+            {{-- ============================================================= --}}
+            <div x-show="satuan === 'kg'" x-cloak class="mb-6">
+                <label class="block text-sm font-semibold mb-3">Varian Potongan / Gramasi</label>
 
-                <div>
-                    <label class="block text-sm font-semibold mb-2">Minimal Pembelian</label>
-                    <input type="number" name="min_pembelian" required min="1" value="{{ old('min_pembelian') ?? 1 }}"
-                        class="w-full border rounded-xl px-4 py-3">
+                <div class="space-y-3">
+                    <template x-for="(variant, index) in variants" :key="index">
+                        <div class="grid grid-cols-1 sm:grid-cols-[2fr_1.2fr_1fr_auto] gap-3 items-center bg-gray-50 border border-gray-200 rounded-xl p-3">
+                            <input type="text" placeholder="Nama Potongan (mis. 500 gram)"
+                                x-model="variant.label" :name="'variants[' + index + '][label]'"
+                                :disabled="satuan === 'pcs'"
+                                class="border rounded-lg px-3 py-2 text-sm">
+                            <input type="number" placeholder="Harga" min="0"
+                                x-model="variant.price" :name="'variants[' + index + '][price]'"
+                                :disabled="satuan === 'pcs'"
+                                class="border rounded-lg px-3 py-2 text-sm">
+                            <input type="number" placeholder="Stok" min="0"
+                                x-model="variant.stock" :name="'variants[' + index + '][stock]'"
+                                :disabled="satuan === 'pcs'"
+                                class="border rounded-lg px-3 py-2 text-sm">
+                            <button type="button" @click="removeVariant(index)"
+                                class="text-red-500 hover:text-red-700 text-sm font-semibold px-2 py-2">
+                                Hapus
+                            </button>
+                        </div>
+                    </template>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-semibold mb-2">Satuan</label>
-                    <select name="satuan" required class="w-full border rounded-xl px-4 py-3">
-                        <option value="">-- Pilih Satuan --</option>
-                        <option value="kg">Kg</option>
-                        <option value="pcs">Pcs</option>
-                    </select>
-                </div>
-
+                <button type="button" @click="addVariant()"
+                    class="mt-3 text-sm font-semibold text-blue-600 hover:text-blue-800">
+                    + Tambah Varian
+                </button>
             </div>
 
             <div class="mb-6">
@@ -132,9 +194,15 @@
                 </div>
             </div>
 
+            {{-- ============================================================= --}}
+            {{-- MULTI-FOTO PRODUK — maksimal 5 foto. Validasi jumlah dicek     --}}
+            {{-- di sisi klien (peringatan instan) DAN di server (final).       --}}
+            {{-- ============================================================= --}}
             <div class="mb-8">
-                <label class="block font-semibold mb-2">Foto Produk</label>
-                <input type="file" name="images[]" multiple accept="image/*" class="w-full">
+                <label class="block font-semibold mb-2">Foto Produk (maksimal 5)</label>
+                <input type="file" name="images[]" id="images-input" multiple accept="image/*" class="w-full">
+                <p id="images-counter" class="mt-1.5 text-xs text-gray-400">0 dari 5 foto dipilih.</p>
+                <p id="images-warning" class="mt-1 text-xs text-red-500 hidden">Maksimal 5 foto — kelebihan file diabaikan.</p>
             </div>
 
             <div class="flex justify-end space-x-4">
@@ -172,6 +240,21 @@
         };
 
         update();
+
+        // ---------------------------------------------------------------
+        // VALIDASI JUMLAH FOTO (klien): batasi maksimal 5 file terpilih.
+        // Backend (ProductController@store) tetap jadi validasi FINAL —
+        // ini hanya feedback instan agar Admin tidak perlu submit dulu.
+        // ---------------------------------------------------------------
+        const imagesInput = document.getElementById('images-input');
+        const imagesCounter = document.getElementById('images-counter');
+        const imagesWarning = document.getElementById('images-warning');
+
+        imagesInput.addEventListener('change', function () {
+            const count = this.files.length;
+            imagesCounter.textContent = count + ' dari 5 foto dipilih.';
+            imagesWarning.classList.toggle('hidden', count <= 5);
+        });
     </script>
 
 </body>

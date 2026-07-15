@@ -11,7 +11,9 @@ class KatalogController extends Controller
     public function index(Request $request, $kategori = null)
     {
         // 1. Mulai Query
-        $query = Product::with('primaryImage')->where('is_active', 1);
+        // 'variants' di-eager-load karena kartu katalog kini menampilkan jumlah
+        // varian & harga "mulai dari" untuk produk unit_type='kg' (hindari N+1).
+        $query = Product::with(['primaryImage', 'variants'])->where('is_active', 1);
 
         // 2. Filter Kategori (Jika ada di URL).
         // BUG LAMA: $kategori berisi SLUG kategori (mis. "japanes"), tapi kode lama
@@ -44,5 +46,22 @@ class KatalogController extends Controller
 
         // 6. Kembalikan View Utama
         return view('user.katalog', compact('products', 'kategori', 'categories'));
+    }
+
+    /**
+     * Halaman Detail Produk — galeri foto (maks 5) + logika kondisional Pcs/Kg:
+     * - unit_type='pcs' : tampil harga & stok utama langsung, tombol Add to Cart aktif.
+     * - unit_type='kg'  : user WAJIB memilih salah satu Varian Potongan/Gramasi
+     *                     dulu (harga & stok mengikuti varian yang diklik) sebelum
+     *                     tombol Add to Cart aktif — lihat resources/views/user/produk-detail.blade.php.
+     */
+    public function show(Product $product)
+    {
+        // Produk nonaktif tidak boleh diakses langsung lewat URL detail.
+        abort_unless($product->is_active, 404);
+
+        $product->load(['images', 'variants', 'category']);
+
+        return view('user.produk-detail', compact('product'));
     }
 }

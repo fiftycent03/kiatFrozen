@@ -123,9 +123,10 @@
                 <input type="hidden" name="district" id="in-dist" value="{{ $selectedAddress->district ?? '' }}">
                 <input type="hidden" name="address_detail" id="in-detail" value="{{ $selectedAddress->address_detail ?? $selectedAddress->customer_address ?? '' }}">
 
-                {{-- Ongkir di-hardcode 0, metode pembayaran dikunci ke Midtrans — dropdown dihapus. --}}
+                {{-- Ongkir di-hardcode 0. Metode pembayaran kini SELALU Transfer Bank Manual —
+                     tidak ada lagi pilihan gateway, jadi tidak perlu input tersembunyi apa pun
+                     untuk metode bayar (backend selalu set payment_channel='transfer'). --}}
                 <input type="hidden" name="shipping_service" value="standard">
-                <input type="hidden" name="payment_method" value="midtrans">
 
                 <textarea name="notes" class="kiat-input" style="height: 60px; resize: none;" placeholder="Catatan untuk penjual..."></textarea>
 
@@ -143,9 +144,12 @@
 
                 {{-- Tombol aktif jika sudah ada alamat terpilih (dari sesi/riwayat), dinonaktifkan untuk --}}
                 {{-- guest tanpa alamat. JS akan mengaktifkannya saat user memilih alamat dari modal. --}}
+                {{-- Tombol ini kini SUBMIT FORM BIASA (bukan lagi AJAX) — checkout.store()
+                     langsung membuat order lalu redirect ke halaman sukses berisi info
+                     rekening & form upload bukti transfer. Tidak ada popup gateway lagi. --}}
                 <button type="submit" id="btn-submit" class="btn-checkout"
                         {{ isset($selectedAddress) && $selectedAddress ? '' : 'disabled' }}>
-                    {{ isset($selectedAddress) && $selectedAddress ? '💳 BAYAR SEKARANG' : 'PILIH ALAMAT DULU' }}
+                    {{ isset($selectedAddress) && $selectedAddress ? '🏦 LANJUT KE PEMBAYARAN' : 'PILIH ALAMAT DULU' }}
                 </button>
             </form>
         </div>
@@ -181,9 +185,6 @@
 </div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-{{-- Midtrans Snap.js: library popup pembayaran. Client Key diambil dari config/services.php. --}}
-<script src="{{ config('services.midtrans.is_production') ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js' }}"
-        data-client-key="{{ config('services.midtrans.client_key') }}"></script>
 <script>
     let subtotal = parseInt("{{ $total ?? 0 }}");
 
@@ -203,7 +204,7 @@
         $('#display-shipping').text('Rp 0');
         $('#display-total').text('Rp ' + new Intl.NumberFormat('id-ID').format(subtotal));
         // Aktifkan tombol checkout setelah alamat dipilih.
-        $('#btn-submit').prop('disabled', false).text('💳 BAYAR SEKARANG');
+        $('#btn-submit').prop('disabled', false).text('🏦 LANJUT KE PEMBAYARAN');
         closeModal();
     }
 
@@ -216,103 +217,12 @@
     $(document).ready(function() {
         calculate();
 
-        // ============================================================
-        // INTERCEPT CHECKOUT FORM → MIDTRANS SNAP POPUP
-        // ============================================================
-        // Mencegah submit form tradisional; order dibuat via AJAX agar server
-        // bisa membalas JSON berisi Snap Token, lalu popup Midtrans dibuka di sini.
-        $('#checkout-form').on('submit', function(e) {
-            e.preventDefault();
-            const $btn  = $('#btn-submit');
-            const $form = $(this);
-            $btn.prop('disabled', true).text('MEMPROSES...');
-
-            $.ajax({
-                url:      $form.attr('action'),
-                method:   'POST',
-                data:     $form.serialize(),
-                dataType: 'json',
-                success: function(res) {
-                    if (!res.success) {
-                        alert(res.message || 'Terjadi kesalahan. Silakan coba lagi.');
-                        $btn.prop('disabled', false).text('💳 BAYAR SEKARANG');
-                        return;
-                    }
-
-                    if (res.snap_token && typeof window.snap !== 'undefined') {
-                        // Token diterima — buka popup pembayaran Midtrans Snap.
-                        // res.success_url = /order/success/{id}, res.detail_url = /user/order/{id} (Order Detail).
-                        window.snap.pay(res.snap_token, {
-                            onSuccess: function(result) {
-                                // Pembayaran berhasil TUNTAS — konfirmasi ke backend dengan status
-                                // 'paid' (mengurangi stok), lalu redirect ke halaman SUKSES.
-                                // .finally() dipakai agar redirect tetap terjadi walau request
-                                // konfirmasi gagal jaringan.
-                                fetch("{{ route('payment.confirm') }}", {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'X-CSRF-TOKEN': "{{ csrf_token() }}"
-                                    },
-                                    body: JSON.stringify({ order_id: res.order_id, status: 'paid' })
-                                }).finally(function() {
-                                    window.location.href = res.success_url;
-                                });
-                            },
-                            onPending: function() {
-                                // Menunggu pembayaran (VA/QR belum ditransfer) — status order TETAP
-                                // 'pending', tapi kirim status 'pending' ke backend supaya stok tetap
-                                // dikunci untuk order ini (mencegah stok "dijual" ke pembeli lain
-                                // selagi VA masih aktif ditunggu). Redirect ke halaman ORDER DETAIL
-                                // (bukan success) — di sanalah instruksi VA/QR & status terkini tampil.
-                                fetch("{{ route('payment.confirm') }}", {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'X-CSRF-TOKEN': "{{ csrf_token() }}"
-                                    },
-                                    body: JSON.stringify({ order_id: res.order_id, status: 'pending' })
-                                }).finally(function() {
-                                    window.location.href = res.detail_url;
-                                });
-                            },
-                            onError: function() {
-                                // Pembayaran gagal di sisi Midtrans — order tetap tersimpan (alur
-                                // "Pay Later"), jadi arahkan ke Order Detail agar user bisa coba
-                                // lagi lewat tombol "Lanjutkan Pembayaran" (bukan ke /cart, karena
-                                // cart sudah dikosongkan sejak order dibuat).
-                                alert('Pembayaran gagal. Silakan coba lagi dari halaman detail pesanan.');
-                                window.location.href = res.detail_url;
-                            },
-                            onClose: function() {
-                                // ============================================================
-                                // POPUP DITUTUP TANPA BAYAR (onClose) — ALUR "PAY LATER":
-                                // Order TIDAK DIHAPUS. Order sudah sah tersimpan di database
-                                // (dan sudah dilengkapi snap_token dari store()), jadi user
-                                // tinggal diarahkan ke halaman Order Detail — di sana tombol
-                                // "Lanjutkan Pembayaran" akan membuka ULANG sesi pembayaran yang
-                                // sama kapan pun dia siap membayar.
-                                // ============================================================
-                                window.location.href = res.detail_url;
-                            }
-                        });
-                    } else {
-                        // Midtrans belum dikonfigurasi (snap_token null) — redirect langsung.
-                        window.location.href = res.success_url;
-                    }
-                },
-                error: function(xhr) {
-                    // Tampilkan pesan validasi Laravel jika ada, atau pesan generik.
-                    let msg = 'Terjadi kesalahan server. Silakan coba lagi.';
-                    if (xhr.responseJSON && xhr.responseJSON.errors) {
-                        msg = Object.values(xhr.responseJSON.errors).flat().join('\n');
-                    } else if (xhr.responseJSON && xhr.responseJSON.message) {
-                        msg = xhr.responseJSON.message;
-                    }
-                    alert(msg);
-                    $btn.prop('disabled', false).text('💳 BAYAR SEKARANG');
-                }
-            });
+        // Form checkout kini SUBMIT BIASA (tanpa intercept AJAX/gateway apa pun).
+        // Browser mem-POST langsung ke checkout.store(), yang membuat order lalu
+        // redirect ke halaman sukses (info rekening + form upload bukti transfer).
+        // Tombol dinonaktifkan sesaat untuk mencegah klik ganda saat form dikirim.
+        $('#checkout-form').on('submit', function() {
+            $('#btn-submit').prop('disabled', true).text('MEMPROSES...');
         });
     });
 
