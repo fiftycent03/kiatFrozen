@@ -54,7 +54,7 @@ class ProductController extends Controller
             'description'  => 'nullable|string',
             'is_active'    => 'boolean',
 
-            // --- CABANG "PCS": harga & stok UTAMA wajib diisi hanya jika satuan=pcs.
+            // Validasi kondisional — CABANG "PCS": harga & stok UTAMA wajib diisi hanya jika satuan=pcs.
             // Input-input ini di-nonaktifkan (disabled) oleh Alpine di Blade saat
             // satuan=kg, sehingga browser TIDAK mengirim nilainya sama sekali —
             // required_if karenanya tidak pernah tersandung kondisi kg.
@@ -62,7 +62,7 @@ class ProductController extends Controller
             'min_pembelian'=> 'required_if:satuan,pcs|nullable|numeric|min:1',
             'stock'        => 'required_if:satuan,pcs|nullable|numeric|min:0',
 
-            // --- CABANG "KG": wajib minimal 1 baris Varian Potongan/Gramasi.
+            // Validasi kondisional — CABANG "KG": wajib minimal 1 baris Varian Potongan/Gramasi.
             'variants'            => 'required_if:satuan,kg|nullable|array|min:1',
             'variants.*.label'    => 'required_with:variants|string|max:100',
             'variants.*.price'    => 'required_with:variants|numeric|min:0',
@@ -142,12 +142,12 @@ class ProductController extends Controller
             'description'  => 'nullable|string',
             'is_active'    => 'boolean',
 
-            // Sama seperti store(): hanya wajib diisi bila satuan=pcs (lihat komentar di store()).
+            // Validasi kondisional — sama seperti store(): hanya wajib diisi bila satuan=pcs (lihat komentar di store()).
             'price_per_kg' => 'required_if:satuan,pcs|nullable|numeric|min:0',
             'min_pembelian'=> 'required_if:satuan,pcs|nullable|numeric|min:1',
             'stock'        => 'required_if:satuan,pcs|nullable|numeric|min:0',
 
-            // Varian wajib minimal 1 baris bila satuan=kg.
+            // Validasi kondisional — Varian wajib minimal 1 baris bila satuan=kg.
             'variants'            => 'required_if:satuan,kg|nullable|array|min:1',
             'variants.*.label'    => 'required_with:variants|string|max:100',
             'variants.*.price'    => 'required_with:variants|numeric|min:0',
