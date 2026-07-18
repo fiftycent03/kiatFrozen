@@ -405,6 +405,7 @@
 // ---------------------------------------------------------------------
 // $heroSlides : produk DB yang dipakai slider Hero + quick-add (product_id ASLI).
 // $initialCart: isi keranjang session saat ini, di-render langsung tanpa fetch awal.
+// Field stok dihapus atas permintaan
 $dashProducts = isset($products) ? $products : collect();
 $heroSlides = $dashProducts->map(function ($p) {
   return [
@@ -415,7 +416,6 @@ $heroSlides = $dashProducts->map(function ($p) {
     'price' => (int) $p->price_per_kg,
     'unit' => $p->satuan ?? 'Kg',
     'min' => (int) ($p->min_pembelian ?? 1),
-    'stock' => (int) $p->stock,
     'img' => $p->primaryImage?->path
       ? asset('storage/' . $p->primaryImage->path)
       : asset('storage/gambardepan.jpeg'),
@@ -446,7 +446,7 @@ $initialCart = array_values(session('cart', []));
   if (!Array.isArray(heroProducts) || heroProducts.length === 0) {
     heroProducts = [{
       id: null, name: 'Seafood KIAT Frozen', origin: 'Surabaya, Jawa Timur',
-      tag: 'Pilihan Terbaik', price: 0, unit: '', min: 1, stock: 0,
+      tag: 'Pilihan Terbaik', price: 0, unit: '', min: 1,
       img: '{{ asset("storage/gambardepan.jpeg") }}', alt: 'Produk KIAT Frozen',
     }];
   }
@@ -630,9 +630,9 @@ $initialCart = array_values(session('cart', []));
   function pulseBadge() { cartBadge.classList.remove('badge-pulse'); void cartBadge.offsetWidth; cartBadge.classList.add('badge-pulse'); }
 
   // Quick-add dari kartu Hero: kirim product_id ASLI + min pembelian slide aktif.
+  // Field stok dihapus atas permintaan.
   document.getElementById('quickAddBtn').addEventListener('click', () => {
     const p = heroProducts[currentSlide];
-    if (p && p.id && p.stock <= 0) { showToast('Stok produk ini sedang habis'); return; }
     addToCart(p ? p.id : null, p ? p.min : null);
   });
 

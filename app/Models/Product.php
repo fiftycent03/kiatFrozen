@@ -9,6 +9,7 @@ class Product extends Model
 {
     use HasFactory;
 
+    // Field stok dihapus atas permintaan — ketersediaan beli kini murni mengikuti `is_active`.
     protected $fillable = [
         'name',
         'category_id',
@@ -20,7 +21,6 @@ class Product extends Model
         'unit_type',
         'description',
         'is_active',
-        'stock',
     ];
 
     public function category()
@@ -56,11 +56,5 @@ class Product extends Model
     public function isPcs(): bool
     {
         return $this->unit_type !== 'kg'; // default aman: apa pun selain 'kg' dianggap Pcs
-    }
-
-    // Tambahan relasi riwayat stok
-    public function stockMutations()
-    {
-        return $this->hasMany(StockMutation::class);
     }
 }

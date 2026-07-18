@@ -54,19 +54,19 @@ class ProductController extends Controller
             'description'  => 'nullable|string',
             'is_active'    => 'boolean',
 
-            // Validasi kondisional — CABANG "PCS": harga & stok UTAMA wajib diisi hanya jika satuan=pcs.
+            // Validasi kondisional — CABANG "PCS": harga UTAMA wajib diisi hanya jika satuan=pcs.
             // Input-input ini di-nonaktifkan (disabled) oleh Alpine di Blade saat
             // satuan=kg, sehingga browser TIDAK mengirim nilainya sama sekali —
             // required_if karenanya tidak pernah tersandung kondisi kg.
+            // Field stok dihapus atas permintaan.
             'price_per_kg' => 'required_if:satuan,pcs|nullable|numeric|min:0',
             'min_pembelian'=> 'required_if:satuan,pcs|nullable|numeric|min:1',
-            'stock'        => 'required_if:satuan,pcs|nullable|numeric|min:0',
 
             // Validasi kondisional — CABANG "KG": wajib minimal 1 baris Varian Potongan/Gramasi.
+            // Field stok dihapus atas permintaan.
             'variants'            => 'required_if:satuan,kg|nullable|array|min:1',
             'variants.*.label'    => 'required_with:variants|string|max:100',
             'variants.*.price'    => 'required_with:variants|numeric|min:0',
-            'variants.*.stock'    => 'required_with:variants|numeric|min:0',
 
             // Multi-foto: maksimal 5 gambar per produk.
             'images'       => 'nullable|array|max:5',
@@ -82,16 +82,15 @@ class ProductController extends Controller
 
         // LOGIKA IF/ELSE PCS vs KG ------------------------------------------------
         if ($data['satuan'] === 'kg') {
-            // Produk Kg TIDAK memakai harga/stok utama untuk transaksi — tapi kita
-            // tetap isi otomatis dari data varian (harga termurah & total stok)
-            // supaya kartu katalog lama & fallback "add-to-cart tanpa varian"
-            // tetap menampilkan angka yang masuk akal.
+            // Produk Kg TIDAK memakai harga utama untuk transaksi — tapi kita
+            // tetap isi otomatis dari data varian (harga termurah) supaya kartu
+            // katalog lama & fallback "add-to-cart tanpa varian" tetap
+            // menampilkan angka yang masuk akal. Field stok dihapus atas permintaan.
             $variantsInput = collect($request->input('variants', []));
             $data['price_per_kg']  = (float) $variantsInput->min('price');
-            $data['stock']         = (int) $variantsInput->sum('stock');
             $data['min_pembelian'] = 1;
         }
-        // Jika 'pcs': price_per_kg/min_pembelian/stock sudah tervalidasi & terisi
+        // Jika 'pcs': price_per_kg/min_pembelian sudah tervalidasi & terisi
         // langsung dari input admin di atas — tidak ada varian yang dibuat.
 
         $product = Product::create($data);
@@ -102,7 +101,6 @@ class ProductController extends Controller
                 $product->variants()->create([
                     'label' => $v['label'],
                     'price' => $v['price'],
-                    'stock' => $v['stock'],
                 ]);
             }
         }
@@ -143,15 +141,15 @@ class ProductController extends Controller
             'is_active'    => 'boolean',
 
             // Validasi kondisional — sama seperti store(): hanya wajib diisi bila satuan=pcs (lihat komentar di store()).
+            // Field stok dihapus atas permintaan.
             'price_per_kg' => 'required_if:satuan,pcs|nullable|numeric|min:0',
             'min_pembelian'=> 'required_if:satuan,pcs|nullable|numeric|min:1',
-            'stock'        => 'required_if:satuan,pcs|nullable|numeric|min:0',
 
             // Validasi kondisional — Varian wajib minimal 1 baris bila satuan=kg.
+            // Field stok dihapus atas permintaan.
             'variants'            => 'required_if:satuan,kg|nullable|array|min:1',
             'variants.*.label'    => 'required_with:variants|string|max:100',
             'variants.*.price'    => 'required_with:variants|numeric|min:0',
-            'variants.*.stock'    => 'required_with:variants|numeric|min:0',
 
             'images'           => 'nullable|array',
             'images.*'         => 'image|max:2048',
@@ -179,10 +177,10 @@ class ProductController extends Controller
         $data['unit_type'] = $data['satuan']; // sinkron dengan kolom baru (lihat store())
 
         // LOGIKA IF/ELSE PCS vs KG (sama seperti store()) --------------------------
+        // Field stok dihapus atas permintaan.
         if ($data['satuan'] === 'kg') {
             $variantsInput = collect($request->input('variants', []));
             $data['price_per_kg']  = (float) $variantsInput->min('price');
-            $data['stock']         = (int) $variantsInput->sum('stock');
             $data['min_pembelian'] = 1;
         }
 
@@ -199,7 +197,6 @@ class ProductController extends Controller
                 $product->variants()->create([
                     'label' => $v['label'],
                     'price' => $v['price'],
-                    'stock' => $v['stock'],
                 ]);
             }
         }

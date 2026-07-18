@@ -59,11 +59,11 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 
                 @forelse($products as $product)
+                {{-- Field stok dihapus atas permintaan --}}
                 <div class="bg-white/90 rounded-2xl shadow-sm border border-ink/5 overflow-hidden hover:shadow-md transition flex flex-col h-full"
                      x-data="{
-                        qty: {{ $product->stock > 0 ? ($product->min_pembelian ?? 1) : 0 }},
-                        min: {{ $product->min_pembelian ?? 1 }},
-                        stock: {{ $product->stock }}
+                        qty: {{ $product->min_pembelian ?? 1 }},
+                        min: {{ $product->min_pembelian ?? 1 }}
                      }">
 
                     {{-- IMAGE SECTION — dijadikan link ke Halaman Detail Produk --}}
@@ -78,20 +78,17 @@
                             {{ $product->satuan ?? 'Kg' }}
                         </div>
 
+                        {{-- Field stok dihapus atas permintaan --}}
                         <div class="absolute bottom-3 left-3">
                             @if($product->isKg())
-                                {{-- Produk Kg: tampilkan jumlah varian, bukan stok utama (stok ada per-varian) --}}
+                                {{-- Produk Kg: tampilkan jumlah varian --}}
                                 <span class="bg-lagoon text-white text-[10px] px-2 py-1 rounded-full font-bold shadow-lg">{{ $product->variants->count() }} Varian</span>
-                            @elseif($product->stock > 0)
-                                <span class="bg-lagoon text-white text-[10px] px-2 py-1 rounded-full font-bold shadow-lg">Stok: {{ $product->stock }}</span>
-                            @else
-                                <span class="bg-coral text-white text-[10px] px-2 py-1 rounded-full font-bold shadow-lg">HABIS</span>
                             @endif
                         </div>
                     </a>
 
                     {{-- DETAIL SECTION --}}
-                    <div class="p-5 flex flex-col flex-1 {{ $product->isPcs() && $product->stock <= 0 ? 'opacity-60' : '' }}">
+                    <div class="p-5 flex flex-col flex-1">
                         <div class="mb-4 flex-1">
                             <a href="{{ route('produk.show', $product->slug) }}" class="hover:text-lagoon transition">
                                 <h3 class="font-display font-semibold text-ink text-lg leading-tight">{{ $product->name }}</h3>
@@ -126,8 +123,7 @@
                                     <button type="button"
                                             @click="if(qty > min) qty--"
                                             class="w-10 h-10 flex items-center justify-center bg-white rounded-lg text-ink/60 shadow-sm transition active:scale-95"
-                                            :class="qty <= min ? 'opacity-30 cursor-not-allowed' : 'hover:bg-coral/10 hover:text-coral'"
-                                            :disabled="stock <= 0">
+                                            :class="qty <= min ? 'opacity-30 cursor-not-allowed' : 'hover:bg-coral/10 hover:text-coral'">
                                         <span class="text-xl font-bold">-</span>
                                     </button>
 
@@ -140,28 +136,20 @@
 
                                     {{-- Tombol Tambah --}}
                                     <button type="button"
-                                            @click="if(qty < stock) qty++"
-                                            class="w-10 h-10 flex items-center justify-center bg-white rounded-lg text-ink/60 shadow-sm transition active:scale-95"
-                                            :class="qty >= stock ? 'opacity-30 cursor-not-allowed' : 'hover:bg-lagoon/10 hover:text-lagoon'"
-                                            :disabled="stock <= 0">
+                                            @click="qty++"
+                                            class="w-10 h-10 flex items-center justify-center bg-white rounded-lg text-ink/60 shadow-sm transition active:scale-95 hover:bg-lagoon/10 hover:text-lagoon">
                                         <span class="text-xl font-bold">+</span>
                                     </button>
                                 </div>
 
+                                {{-- Field stok dihapus atas permintaan --}}
                                 <div class="flex flex-col gap-2">
-                                    @if($product->stock > 0)
-                                        {{-- CTA utama emas (gold) --}}
-                                        <button type="submit" class="w-full bg-gold hover:brightness-110 text-abyss py-3 rounded-xl text-sm font-bold transition shadow-glow active:scale-95 flex items-center justify-center gap-2">
-                                            🛒 + Keranjang
-                                        </button>
-                                        <button type="submit" formaction="{{ route('cart.buyNow') }}" class="w-full bg-abyss hover:bg-marine text-pearl py-2 rounded-lg text-xs font-bold transition opacity-90 hover:opacity-100">
-                                            Beli Langsung
-                                        </button>
-                                    @else
-                                        <button type="button" class="w-full bg-ink/10 text-ink/40 py-3 rounded-xl text-sm font-bold cursor-not-allowed" disabled>
-                                            Stok Habis
-                                        </button>
-                                    @endif
+                                    <button type="submit" class="w-full bg-gold hover:brightness-110 text-abyss py-3 rounded-xl text-sm font-bold transition shadow-glow active:scale-95 flex items-center justify-center gap-2">
+                                        🛒 + Keranjang
+                                    </button>
+                                    <button type="submit" formaction="{{ route('cart.buyNow') }}" class="w-full bg-abyss hover:bg-marine text-pearl py-2 rounded-lg text-xs font-bold transition opacity-90 hover:opacity-100">
+                                        Beli Langsung
+                                    </button>
                                 </div>
                             </form>
                         @else

@@ -82,11 +82,8 @@ class CartController extends Controller
             $minBeli = 1; // qty berarti "berapa unit varian ini", bukan berat
             $qty = $data['qty'] ?? $minBeli;
 
-            if ($qty > $variant->stock) {
-                $msg = "Stok untuk varian \"{$variant->label}\" tidak mencukupi (tersisa {$variant->stock}).";
-                if ($isAjax) return response()->json(['success' => false, 'message' => $msg], 422);
-                return back()->with('error', $msg);
-            }
+            // Field stok dihapus atas permintaan — tidak ada lagi pengecekan
+            // stok di sini; ketersediaan beli mengikuti toggle "Status Produk".
 
             // Key KOMPOSIT "productId_variantId" -> varian berbeda dari produk
             // yang sama tersimpan sebagai baris keranjang yang TERPISAH.

@@ -49,14 +49,15 @@
              `satuan` dari $product->satuan, `variants` dari $product->variants (jika kosong,
              mulai dengan 1 baris kosong supaya Admin langsung bisa mengisi saat ganti ke Kg). --}}
         <form action="{{ route('admin.products.update', $product) }}" method="POST" enctype="multipart/form-data"
+              {{-- Field stok dihapus atas permintaan --}}
               x-data="{
                   satuan: '{{ old('satuan', $product->satuan) }}',
                   variants: {{ old('variants')
                         ? Js::from(old('variants'))
                         : ($product->variants->isNotEmpty()
-                            ? Js::from($product->variants->map(fn($v) => ['label' => $v->label, 'price' => $v->price, 'stock' => $v->stock])->values())
-                            : '[{label:\'\',price:\'\',stock:\'\'}]') }},
-                  addVariant() { this.variants.push({ label: '', price: '', stock: '' }); },
+                            ? Js::from($product->variants->map(fn($v) => ['label' => $v->label, 'price' => $v->price])->values())
+                            : '[{label:\'\',price:\'\'}]') }},
+                  addVariant() { this.variants.push({ label: '', price: '' }); },
                   removeVariant(i) { if (this.variants.length > 1) this.variants.splice(i, 1); },
               }">
             @csrf
@@ -105,22 +106,13 @@
                 </select>
             </div>
 
-            {{-- CABANG "PCS": harga & stok utama (disabled saat Kg agar tidak ikut terkirim). --}}
+            {{-- CABANG "PCS": harga utama (disabled saat Kg agar tidak ikut terkirim). Field stok dihapus atas permintaan. --}}
             <div x-show="satuan === 'pcs'" x-cloak>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div>
-                        <label class="block text-sm font-semibold mb-2 text-gray-700">Harga per Kg (Rp)</label>
-                        <input type="number" name="price_per_kg" :disabled="satuan === 'kg'" min="0"
-                            value="{{ old('price_per_kg', $product->price_per_kg) }}"
-                            class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold mb-2 text-blue-600 font-bold">Stok Saat Ini</label>
-                        <input type="number" name="stock" :disabled="satuan === 'kg'" min="0"
-                            value="{{ old('stock', $product->stock) }}"
-                            class="w-full border border-blue-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-blue-50">
-                    </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold mb-2 text-gray-700">Harga per Kg (Rp)</label>
+                    <input type="number" name="price_per_kg" :disabled="satuan === 'kg'" min="0"
+                        value="{{ old('price_per_kg', $product->price_per_kg) }}"
+                        class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
                 </div>
 
                 <div class="mb-6">
@@ -136,18 +128,15 @@
                 <label class="block text-sm font-semibold mb-3 text-gray-700">Varian Potongan / Gramasi</label>
 
                 <div class="space-y-3">
+                    {{-- Field stok dihapus atas permintaan --}}
                     <template x-for="(variant, index) in variants" :key="index">
-                        <div class="grid grid-cols-1 sm:grid-cols-[2fr_1.2fr_1fr_auto] gap-3 items-center bg-gray-50 border border-gray-200 rounded-xl p-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-[2fr_1.2fr_auto] gap-3 items-center bg-gray-50 border border-gray-200 rounded-xl p-3">
                             <input type="text" placeholder="Nama Potongan (mis. 500 gram)"
                                 x-model="variant.label" :name="'variants[' + index + '][label]'"
                                 :disabled="satuan === 'pcs'"
                                 class="border rounded-lg px-3 py-2 text-sm">
                             <input type="number" placeholder="Harga" min="0"
                                 x-model="variant.price" :name="'variants[' + index + '][price]'"
-                                :disabled="satuan === 'pcs'"
-                                class="border rounded-lg px-3 py-2 text-sm">
-                            <input type="number" placeholder="Stok" min="0"
-                                x-model="variant.stock" :name="'variants[' + index + '][stock]'"
                                 :disabled="satuan === 'pcs'"
                                 class="border rounded-lg px-3 py-2 text-sm">
                             <button type="button" @click="removeVariant(index)"

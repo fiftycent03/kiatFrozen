@@ -30,14 +30,14 @@
             images: {{ Illuminate\Support\Js::from($product->images->pluck('path')->map(fn($p) => asset('storage/'.$p))) }},
             active: 0,
             unitType: '{{ $product->unit_type }}',
-            variants: {{ Illuminate\Support\Js::from($product->variants->map(fn($v) => ['id' => $v->id, 'label' => $v->label, 'price' => (float) $v->price, 'stock' => (int) $v->stock])) }},
+            {{-- Field stok dihapus atas permintaan --}}
+            variants: {{ Illuminate\Support\Js::from($product->variants->map(fn($v) => ['id' => $v->id, 'label' => $v->label, 'price' => (float) $v->price])) }},
             selectedVariant: null,
             qty: {{ (int) ($product->min_pembelian ?? 1) }},
             get variant() { return this.variants.find(v => v.id === this.selectedVariant) || null; },
             get currentPrice() { return this.unitType === 'kg' ? (this.variant ? this.variant.price : null) : {{ (float) $product->price_per_kg }}; },
-            get currentStock() { return this.unitType === 'kg' ? (this.variant ? this.variant.stock : 0) : {{ (int) $product->stock }}; },
             selectVariant(v) { this.selectedVariant = v.id; this.qty = 1; },
-            incQty() { if (this.qty < this.currentStock) this.qty++; },
+            incQty() { this.qty++; },
             decQty() { const min = this.unitType === 'kg' ? 1 : {{ (int) ($product->min_pembelian ?? 1) }}; if (this.qty > min) this.qty--; },
             formatRp(n) { return n === null ? '—' : 'Rp' + Number(n).toLocaleString('id-ID'); },
          }">
@@ -95,9 +95,9 @@
             {{-- Add to Cart AKTIF SEKETIKA (tidak perlu memilih apa pun dulu). --}}
             {{-- ============================================================= --}}
             @if($product->isPcs())
+                {{-- Field stok dihapus atas permintaan --}}
                 <div class="mt-2 text-sm text-ink/50">
-                    Stok: <span class="font-semibold text-ink">{{ $product->stock }}</span> {{ $product->satuan }}
-                    &middot; Minimal beli {{ $product->min_pembelian }} {{ $product->satuan }}
+                    Minimal beli {{ $product->min_pembelian }} {{ $product->satuan }}
                 </div>
 
                 <form action="{{ route('cart.add') }}" method="POST" class="mt-8">
@@ -112,10 +112,10 @@
                             <button type="button" @click="incQty()" class="grid h-9 w-9 place-items-center rounded-full bg-white text-ink/60 hover:text-ink transition">+</button>
                         </div>
 
-                        <button type="submit" :disabled="{{ $product->stock }} <= 0"
+                        <button type="submit"
                             class="btn-shine flex-1 rounded-full bg-gold py-3.5 font-semibold text-abyss shadow-glow transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none">
                             <span class="shine"></span>
-                            {{ $product->stock > 0 ? 'Tambah ke Keranjang' : 'Stok Habis' }}
+                            Tambah ke Keranjang
                         </button>
                     </div>
                 </form>
@@ -133,10 +133,11 @@
                     @if($product->variants->isEmpty())
                         <p class="text-sm text-coral">Varian belum tersedia untuk produk ini. Silakan hubungi Admin.</p>
                     @else
+                        {{-- Field stok dihapus atas permintaan --}}
                         <div class="flex flex-wrap gap-2.5">
                             <template x-for="v in variants" :key="v.id">
-                                <button type="button" @click="selectVariant(v)" :disabled="v.stock <= 0"
-                                    class="rounded-xl border-2 px-4 py-2.5 text-sm font-semibold transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                <button type="button" @click="selectVariant(v)"
+                                    class="rounded-xl border-2 px-4 py-2.5 text-sm font-semibold transition"
                                     :class="selectedVariant === v.id ? 'border-gold bg-gold/10 text-ink' : 'border-ink/10 text-ink/70 hover:border-lagoon/40'">
                                     <span x-text="v.label"></span>
                                     <span class="block font-mono text-xs font-normal text-ink/50" x-text="formatRp(v.price)"></span>
@@ -145,8 +146,7 @@
                         </div>
 
                         <p class="mt-3 text-xs text-ink/40">
-                            <template x-if="variant"><span>Stok tersisa: <span x-text="variant.stock" class="font-semibold text-ink/60"></span></span></template>
-                            <template x-if="!variant">Klik salah satu varian di atas untuk melihat stok &amp; melanjutkan.</template>
+                            <template x-if="!variant">Klik salah satu varian di atas untuk melanjutkan.</template>
                         </p>
                     @endif
                 </div>

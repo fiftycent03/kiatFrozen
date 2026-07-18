@@ -49,10 +49,11 @@
         {{-- x-data root: `satuan` = saklar Pcs/Kg (juga jadi value dropdown "Tipe Penjualan"),
              `variants` = array baris Varian Potongan/Gramasi yang bisa ditambah/dihapus. --}}
         <form action="{{ route('admin.products.store') }}" method="POST" enctype="multipart/form-data"
+              {{-- Field stok dihapus atas permintaan --}}
               x-data="{
                   satuan: '{{ old('satuan', 'pcs') }}',
-                  variants: {{ old('variants') ? Js::from(old('variants')) : '[{label:\'\',price:\'\',stock:\'\'}]' }},
-                  addVariant() { this.variants.push({ label: '', price: '', stock: '' }); },
+                  variants: {{ old('variants') ? Js::from(old('variants')) : '[{label:\'\',price:\'\'}]' }},
+                  addVariant() { this.variants.push({ label: '', price: '' }); },
                   removeVariant(i) { if (this.variants.length > 1) this.variants.splice(i, 1); },
               }">
             @csrf
@@ -111,21 +112,13 @@
             {{-- x-show hanya menyembunyikan tampilan, browser tetap mengirim    --}}
             {{-- field yang tidak disabled walau disembunyikan CSS.              --}}
             {{-- ============================================================= --}}
+            {{-- Field stok dihapus atas permintaan --}}
             <div x-show="satuan === 'pcs'" x-cloak>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div>
-                        <label class="block text-sm font-semibold mb-2">Harga per Kg</label>
-                        <input type="number" name="price_per_kg" :disabled="satuan === 'kg'" min="0"
-                            value="{{ old('price_per_kg') }}"
-                            class="w-full border rounded-xl px-4 py-3">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold mb-2 text-blue-600">Stok Awal</label>
-                        <input type="number" name="stock" :disabled="satuan === 'kg'" min="0"
-                            value="{{ old('stock') ?? 0 }}"
-                            class="w-full border border-blue-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500">
-                    </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold mb-2">Harga per Pcs</label>
+                    <input type="number" name="price_per_kg" :disabled="satuan === 'kg'" min="0"
+                        value="{{ old('price_per_kg') }}"
+                        class="w-full border rounded-xl px-4 py-3">
                 </div>
 
                 <div class="mb-6">
@@ -145,18 +138,15 @@
                 <label class="block text-sm font-semibold mb-3">Varian Potongan / Gramasi</label>
 
                 <div class="space-y-3">
+                    {{-- Field stok dihapus atas permintaan --}}
                     <template x-for="(variant, index) in variants" :key="index">
-                        <div class="grid grid-cols-1 sm:grid-cols-[2fr_1.2fr_1fr_auto] gap-3 items-center bg-gray-50 border border-gray-200 rounded-xl p-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-[2fr_1.2fr_auto] gap-3 items-center bg-gray-50 border border-gray-200 rounded-xl p-3">
                             <input type="text" placeholder="Nama Potongan (mis. 500 gram)"
                                 x-model="variant.label" :name="'variants[' + index + '][label]'"
                                 :disabled="satuan === 'pcs'"
                                 class="border rounded-lg px-3 py-2 text-sm">
                             <input type="number" placeholder="Harga" min="0"
                                 x-model="variant.price" :name="'variants[' + index + '][price]'"
-                                :disabled="satuan === 'pcs'"
-                                class="border rounded-lg px-3 py-2 text-sm">
-                            <input type="number" placeholder="Stok" min="0"
-                                x-model="variant.stock" :name="'variants[' + index + '][stock]'"
                                 :disabled="satuan === 'pcs'"
                                 class="border rounded-lg px-3 py-2 text-sm">
                             <button type="button" @click="removeVariant(index)"
