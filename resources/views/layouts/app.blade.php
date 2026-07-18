@@ -6,6 +6,7 @@
     <title>@yield('title', 'KIAT — Karya Inti Alam Tunggal | Seafood Premium')</title>
     <meta name="description" content="Seafood segar premium, higienis, dan bersertifikat Halal — langsung dari laut Nusantara ke dapurmu." />
 
+    <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
     {{-- ============================================================= --}}
     {{-- KERANGKA TEMA UTAMA (Abyss / Lagoon / Pearl / Gold)           --}}
     {{-- Diekstrak dari user/dashboardUser.blade.php sebagai sumber    --}}
